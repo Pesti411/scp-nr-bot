@@ -17,7 +17,7 @@ intents.message_content = True
 
 client = discord.Client(intents=intents)
 
- if re.search(r'\bSCP-001\b', msg, re.IGNORECASE):
+if re.search(r'\bSCP-001\b', msg, re.IGNORECASE):
         await message.channel.send(
             "**SCP-001 ist besonders – es gibt mehrere Versionen!**\n"
             "🔗 Übersicht aller verfügbarer Vertonungen:\n"
