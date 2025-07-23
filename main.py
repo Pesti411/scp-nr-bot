@@ -6,7 +6,14 @@ import asyncio
 import html
 
 TOKEN = os.getenv("DISCORD_TOKEN")
-CHANNEL_NAME = os.getenv("CHANNEL_NAME", "test")
+BLACKLIST_CHANNELS = ["discord-vorschläge", "umfragen", "roleplay", "vertonungsplan", "news"]
+
+@client.event
+async def on_message(message):
+    if message.author.bot:
+        return
+    if message.channel.name in BLACKLIST_CHANNELS:
+        return
 FEED_URL = "https://q8reci.podcaster.de/scp-deutsch.rss"
 
 intents = discord.Intents.default()
@@ -53,9 +60,9 @@ async def on_message(message):
 
     msg = message.content.upper()
 
-    for code, data in scp_links.items():
-        # Regex: exakter Code-Treffer, keine Teiltreffer wie SCP-100 in SCP-1000
-        pattern = r'(?<![\w-])' + re.escape(code) + r'(?![\w-])'
+    for code, link in scp_links.items():
+        code_upper = code.upper()
+        pattern = r'(?<![\w-])' + re.escape(code_upper) + r'(?![\w-])'
         if re.search(pattern, msg, re.IGNORECASE):
             await message.channel.send(
                 f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
