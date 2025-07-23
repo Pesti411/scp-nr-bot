@@ -45,15 +45,15 @@ async def on_message(message):
     if message.author.bot or message.channel.name != CHANNEL_NAME:
         return
 
-    # Nachricht in Großbuchstaben umwandeln für einheitlichen Vergleich
     msg = message.content.upper()
 
-    for code, link in scp_links.items():
-        code_upper = code.upper()  # Auch Keys in Großbuchstaben bringen
-        # Regex: exact match, kein Teilmatch (Lookbehind/lookahead verhindern falsche Treffer)
-        pattern = r'(?<![\w-])' + re.escape(code_upper) + r'(?![\w-])'
+    for code, data in scp_links.items():
+        # Regex: exakter Code-Treffer, keine Teiltreffer wie SCP-100 in SCP-1000
+        pattern = r'(?<![\w-])' + re.escape(code) + r'(?![\w-])'
         if re.search(pattern, msg, re.IGNORECASE):
-            await message.channel.send(f"🔎 Gefunden: **{code}**\n🎧 [Hier anhören]({link})")
+            await message.channel.send(
+                f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']}**)"
+            )
             break
 
 import threading
