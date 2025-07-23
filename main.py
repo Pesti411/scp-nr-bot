@@ -3,6 +3,7 @@ import discord
 import feedparser
 import re
 import asyncio
+import html
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 CHANNEL_NAME = os.getenv("CHANNEL_NAME", "test")
@@ -29,7 +30,7 @@ def update_feed():
         code = parse_scp_code(entry.title)
         if code:
             scp_links[code.lower()] = {
-                "title": entry.title.strip(),
+                "title": html.unescape(entry.title.strip()),
                 "link": entry.link.strip()
             }
 
@@ -55,7 +56,7 @@ async def on_message(message):
         pattern = r'(?<![\w-])' + re.escape(code) + r'(?![\w-])'
         if re.search(pattern, msg, re.IGNORECASE):
             await message.channel.send(
-                f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']}**)"
+                f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]**({data['link']})"
             )
             break
 
