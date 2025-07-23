@@ -56,4 +56,15 @@ async def on_message(message):
             await message.channel.send(f"🔎 Gefunden: **{code}**\n🎧 [Hier anhören]({link})")
             break
 
+import threading
+import http.server
+import socketserver
+
+def keep_alive():
+    handler = http.server.SimpleHTTPRequestHandler
+    with socketserver.TCPServer(("", 8080), handler) as httpd:
+        httpd.serve_forever()
+
+threading.Thread(target=keep_alive).start()
+
 client.run(TOKEN)
