@@ -72,7 +72,7 @@ async def on_message(message):
         pattern = r'(?<![\w-])' + re.escape(code_upper) + r'(?![\w-])'
         if re.search(pattern, msg, re.IGNORECASE):
             await message.channel.send(
-                f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
+                f"🔎 Gefunden: **{code.upper()}**\n🎧 **[Hier anhören]({link})**"
             )
             break
 
