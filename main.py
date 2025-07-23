@@ -17,9 +17,11 @@ client = discord.Client(intents=intents)
 scp_links = {}
 
 def parse_scp_code(title):
-    if not title.startswith("SCP-") or title.startswith("SCP-001"):
+    if not (title.startswith("SCP-") or title.startswith("SKP-")):
         return None
-    match = re.match(r"^(SCP-[^:]+):", title)
+    if title.startswith("SCP-001") or title.startswith("SKP-001"):
+        return None
+    match = re.match(r"^((?:SCP|SKP)-[^:]+):", title)
     return match.group(1) if match else None
 
 def update_feed():
