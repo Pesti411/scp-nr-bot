@@ -82,7 +82,7 @@ async def on_message(message):
             "- [SCP-001-KO: CODE NAME: „L.H. Sein – Durch Menschen“](https://nurkram.de/scp-001-ko-lh-sein)\n"
             "- [SCP-LA-001: CODE NAME: „Fulmen – Die Sense“](https://nurkram.de/scp-la-001-sense)\n"
             "- [SCP-LA-001: CODE NAME: „Praetor Bold – Sprache“](https://nurkram.de/scp-la-001-sprache)\n"
-            ":bulb: SCP-001: CODE NAME: "Abyssus - Abgrund der Realität" *ist bereits geplant, ich bitte um Geduld*\n",
+            ":bulb: SCP-001: CODE NAME: „Abyssus - Abgrund der Realität“ *ist bereits geplant, ich bitte um Geduld*\n",
             suppress_embeds=True
         )
         return
