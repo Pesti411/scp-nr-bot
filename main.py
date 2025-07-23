@@ -5,7 +5,10 @@ import re
 import asyncio
 import html
 
-client = discord.Client()
+intents = discord.Intents.default()
+intents.message_content = True  # Damit dein Bot Nachrichten-Inhalte lesen kann
+
+client = discord.Client(intents=intents)
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 BLACKLIST_CHANNELS = ["discord-vorschläge", "umfragen", "roleplay", "vertonungsplan", "news"]
