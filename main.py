@@ -5,6 +5,8 @@ import re
 import asyncio
 import html
 
+client = discord.Client()
+
 TOKEN = os.getenv("DISCORD_TOKEN")
 BLACKLIST_CHANNELS = ["discord-vorschläge", "umfragen", "roleplay", "vertonungsplan", "news"]
 
