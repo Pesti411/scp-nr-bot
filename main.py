@@ -15,9 +15,15 @@ BLACKLIST_CHANNELS = ["discord-vorschläge", "umfragen", "roleplay", "vertonungs
 intents = discord.Intents.default()
 intents.message_content = True
 
-client = discord.Client(intents=intents)
+@client.event
+async def on_message(message):
+    if message.author.bot or message.channel.name in BLACKLIST_CHANNELS:
+        return
 
-if re.search(r'\bSCP-001\b', msg, re.IGNORECASE):
+    msg = message.content.upper()
+
+    # 🔥 Spezialfall SCP-001
+    if re.search(r'\bSCP-001\b', msg, re.IGNORECASE):
         await message.channel.send(
             "**SCP-001 ist besonders – es gibt mehrere Versionen!**\n"
             "🔗 Übersicht aller verfügbarer Vertonungen:\n"
