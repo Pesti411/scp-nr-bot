@@ -52,7 +52,7 @@ for code, link in scp_links.items():
     code_upper = code.upper()  # Auch Keys in Großbuchstaben bringen
     # Regex: exact match, kein Teilmatch (Lookbehind/lookahead verhindern falsche Treffer)
     pattern = r'(?<![\w-])' + re.escape(code_upper) + r'(?![\w-])'
-        if re.search(pattern, msg, re.IGNORECASE):
+    if re.search(pattern, msg, re.IGNORECASE):
             await message.channel.send(f"🔎 Gefunden: **{code}**\n🎧 [Hier anhören]({link})")
             break
 
