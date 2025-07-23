@@ -18,7 +18,7 @@ scp_links = {}
 def parse_scp_code(title):
     if not title.startswith("SCP-") or title.startswith("SCP-001"):
         return None
-    match = re.match(r"^(SCP-[0-9]+(?:-[A-Z]+)?):", title)
+    match = re.match(r"^(SCP-[^:]+):", title)
     return match.group(1) if match else None
 
 def update_feed():
