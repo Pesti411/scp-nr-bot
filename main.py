@@ -28,7 +28,10 @@ def update_feed():
     for entry in feed.entries:
         code = parse_scp_code(entry.title)
         if code:
-            scp_links[code.lower()] = entry.link
+            scp_links[code.lower()] = {
+                "title": entry.title.strip(),
+                "link": entry.link.strip()
+            }
 
 @client.event
 async def on_ready():
