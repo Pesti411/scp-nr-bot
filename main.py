@@ -60,7 +60,9 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    if message.author.bot or message.channel.name != CHANNEL_NAME:
+    if message.author.bot:
+        return
+    if message.channel.name in BLACKLIST_CHANNELS:
         return
 
     msg = message.content.upper()
