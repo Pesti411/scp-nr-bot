@@ -4,9 +4,6 @@ import feedparser
 import re
 import asyncio
 import html
-import threading
-import http.server
-import socketserver
 
 # Konfiguration
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -97,12 +94,4 @@ async def on_message(message):
             )
             break
 
-# Webserver für "Keep Alive" auf z. B. Render.com
-def keep_alive():
-    handler = http.server.SimpleHTTPRequestHandler
-    with socketserver.TCPServer(("", 8080), handler) as httpd:
-        httpd.serve_forever()
-
-# Start Server + Bot
-threading.Thread(target=keep_alive).start()
 client.run(TOKEN)
