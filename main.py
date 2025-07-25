@@ -107,7 +107,7 @@ async def on_message(message):
         pattern = r'(?<![\w-])' + re.escape(code.upper()) + r'(?![\w-])'
         if re.search(pattern, msg, re.IGNORECASE):
             await message.channel.send(
-                f"📅 **{code.upper()}** ist laut Plan für den {date} vorgesehen."
+                f"📅 **{code.upper()}** ist laut Plan für {date} vorgesehen."
             )
             return
 
