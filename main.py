@@ -4,21 +4,23 @@ import feedparser
 import re
 import asyncio
 import html
+import aiohttp
+import csv
 
 # Konfiguration
 TOKEN = os.getenv("DISCORD_TOKEN")
 FEED_URL = "https://q8reci.podcaster.de/scp-deutsch.rss"
+SCHEDULE_CSV_URL = "https://docs.google.com/spreadsheets/d/125iGFTWMVKImY_abjac1Lfal78o-dFzQalq6rT_YDxM/export?format=csv"
 BLACKLIST_CHANNELS = ["discord-vorschläge", "umfragen", "roleplay", "vertonungsplan", "news"]
 
 # Discord-Intents setzen
 intents = discord.Intents.default()
 intents.message_content = True
 
-# Bot-Client initialisieren
 client = discord.Client(intents=intents)
 
-# Feed-Datenbank
 scp_links = {}
+schedule = {}
 
 def parse_scp_code(title):
     if not (title.startswith("SCP-") or title.startswith("SKP-")):
@@ -40,17 +42,33 @@ def update_feed():
                 "link": entry.link.strip()
             }
 
+async def fetch_schedule():
+    global schedule
+    schedule.clear()
+    async with aiohttp.ClientSession() as session:
+        async with session.get(SCHEDULE_CSV_URL) as resp:
+            text = await resp.text()
+    reader = csv.reader(text.splitlines())
+    for row in reader:
+        if len(row) >= 4:
+            code = row[0].strip().lower()
+            date = row[3].strip()
+            if code and date:
+                schedule[code] = date
+
 @client.event
 async def on_ready():
     print(f"Eingeloggt als {client.user}")
     update_feed()
+    await fetch_schedule()
 
-    async def refresh_feed_loop():
+    async def refresh_data_loop():
         while True:
             await asyncio.sleep(3600)  # stündlich
             update_feed()
+            await fetch_schedule()
 
-    client.loop.create_task(refresh_feed_loop())
+    client.loop.create_task(refresh_data_loop())
 
 @client.event
 async def on_message(message):
@@ -84,7 +102,16 @@ async def on_message(message):
         )
         return
 
-    # Normale SCP-/SKP-Erkennung
+    # Check gegen Plan-Tabelle
+    for code, date in schedule.items():
+        pattern = r'(?<![\w-])' + re.escape(code.upper()) + r'(?![\w-])'
+        if re.search(pattern, msg, re.IGNORECASE):
+            await message.channel.send(
+                f"📅 **{code.upper()}** ist laut Plan für den {date} vorgesehen."
+            )
+            return
+
+    # Normale SCP-/SKP-Erkennung (aus Feed)
     for code, data in scp_links.items():
         code_upper = code.upper()
         pattern = r'(?<![\w-])' + re.escape(code_upper) + r'(?![\w-])'
