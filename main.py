@@ -47,7 +47,7 @@ async def on_ready():
 
     async def refresh_feed_loop():
         while True:
-            await asyncio.sleep(86400)  # alle 24 Stunden
+            await asyncio.sleep(3600)  # stündlich
             update_feed()
 
     client.loop.create_task(refresh_feed_loop())
