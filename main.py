@@ -69,6 +69,7 @@ async def on_ready():
             await fetch_schedule()
 
     client.loop.create_task(refresh_data_loop())
+    client.loop.create_task(post_random_episode_loop())
 
 async def post_random_episode_loop():
         await client.wait_until_ready()
@@ -81,7 +82,7 @@ async def post_random_episode_loop():
                     await channel.send(
                         f"🎧 Zufällige Episode:\n**{episode['title']}**\n🔗 {episode['link']}"
                     )
-            await asyncio.sleep(60)  # alle 6 Stunden posten (6×60×60)
+            await asyncio.sleep(60)  # alle 60 Sekunden posten
             
 @client.event
 async def on_message(message):
