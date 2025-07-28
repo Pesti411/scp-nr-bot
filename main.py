@@ -35,12 +35,12 @@ def update_feed():
     scp_links.clear()
     feed = feedparser.parse(FEED_URL)
     for entry in feed.entries:
-        code = parse_scp_code(entry.title)
-        if code:
-            scp_links[code.lower()] = {
-                "title": html.unescape(entry.title.strip()),
-                "link": entry.link.strip()
-            }
+        # Eindeutiger Schlüssel, z. B. Link
+        key = entry.link.strip()
+        scp_links[key] = {
+            "title": html.unescape(entry.title.strip()),
+            "link": entry.link.strip()
+        }
 
 async def fetch_schedule():
     global schedule
@@ -70,6 +70,19 @@ async def on_ready():
 
     client.loop.create_task(refresh_data_loop())
 
+async def post_random_episode_loop():
+        await client.wait_until_ready()
+        while True:
+            if scp_links:
+                import random
+                episode = random.choice(list(scp_links.values()))
+                channel = discord.utils.get(client.get_all_channels(), name="test")  # ❗ Channelname anpassen
+                if channel:
+                    await channel.send(
+                        f"🎧 Zufällige Episode:\n**{episode['title']}**\n🔗 {episode['link']}"
+                    )
+            await asyncio.sleep(60)  # alle 6 Stunden posten (6×60×60)
+            
 @client.event
 async def on_message(message):
     if message.author.bot or message.channel.name in BLACKLIST_CHANNELS:
