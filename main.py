@@ -6,6 +6,7 @@ import asyncio
 import html
 import aiohttp
 import csv
+import datetime
 
 # Konfiguration
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -71,18 +72,35 @@ async def on_ready():
     client.loop.create_task(refresh_data_loop())
     client.loop.create_task(post_random_episode_loop())
 
+import datetime
+
 async def post_random_episode_loop():
-        await client.wait_until_ready()
-        while True:
-            if scp_links:
-                import random
-                episode = random.choice(list(scp_links.values()))
-                channel = discord.utils.get(client.get_all_channels(), name="test")  # ❗ Channelname anpassen
-                if channel:
-                    await channel.send(
-                        f"🎧 Zufällige Episode:\n**{episode['title']}**\n🔗 {episode['link']}"
-                    )
-            await asyncio.sleep(60)  # alle 60 Sekunden posten
+    await client.wait_until_ready()
+    while True:
+        now = datetime.datetime.now()
+        target_time = now.replace(hour=12, minute=0, second=0, microsecond=0)
+
+        # Wenn Zielzeit heute schon vorbei ist, nimm morgen
+        if now >= target_time:
+            target_time += datetime.timedelta(days=1)
+
+        wait_seconds = (target_time - now).total_seconds()
+        print(f"[INFO] Warte bis {target_time} ({int(wait_seconds)} Sekunden)")
+
+        await asyncio.sleep(wait_seconds)
+
+        # Wähle zufällige Episode
+        if scp_links:
+            import random
+            episode = random.choice(list(scp_links.values()))
+            channel = discord.utils.get(client.get_all_channels(), name="test")  # ggf. Channelname anpassen
+            if channel:
+                await channel.send(
+                    f"🎧 Tägliche Zufalls-Episode:\n**{episode['title']}**\n🔗 **[Hier anhören]({episode['link']})**"
+                )
+
+        # Danach exakt 24 Stunden warten (bis zur nächsten Sendung)
+        await asyncio.sleep(86400)
             
 @client.event
 async def on_message(message):
