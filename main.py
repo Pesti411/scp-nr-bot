@@ -21,7 +21,8 @@ intents.message_content = True
 
 client = discord.Client(intents=intents)
 
-scp_links = {}
+scp_links = {}      # Nur Folgen mit SCP-/SKP-Code
+all_episodes = []   # Alle Folgen im Feed
 schedule = {}
 
 def parse_scp_code(title):
@@ -33,16 +34,26 @@ def parse_scp_code(title):
     return match.group(1) if match else None
 
 def update_feed():
-    global scp_links
+    global scp_links, all_episodes
     scp_links.clear()
+    all_episodes.clear()
+
     feed = feedparser.parse(FEED_URL)
     for entry in feed.entries:
-        # Eindeutiger Schlüssel, z. B. Link
-        key = entry.link.strip()
-        scp_links[key] = {
-            "title": html.unescape(entry.title.strip()),
-            "link": entry.link.strip()
-        }
+        title = html.unescape(entry.title.strip())
+        link = entry.link.strip()
+
+        all_episodes.append({
+            "title": title,
+            "link": link
+        })
+
+        code = parse_scp_code(title)
+        if code:
+            scp_links[code.lower()] = {
+                "title": title,
+                "link": link
+            }
 
 async def fetch_schedule():
     global schedule
@@ -95,7 +106,7 @@ async def post_random_episode_loop():
         # Wähle zufällige Episode
         if scp_links:
             import random
-            episode = random.choice(list(scp_links.values()))
+            episode = random.choice(all_episodes)
             channel = discord.utils.get(client.get_all_channels(), name="test")  # ggf. Channelname anpassen
             if channel:
                 await channel.send(
