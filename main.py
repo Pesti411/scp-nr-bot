@@ -91,7 +91,7 @@ async def post_random_episode_loop():
     await client.wait_until_ready()
     while True:
         now = datetime.datetime.now(tz)
-        target_time = now.replace(hour=13, minute=12, second=0, microsecond=0)
+        target_time = now.replace(hour=12, minute=0, second=0, microsecond=0)
 
         if now >= target_time:
             # Nächster Tag 12 Uhr
@@ -106,7 +106,7 @@ async def post_random_episode_loop():
         if all_episodes:
             import random
             episode = random.choice(all_episodes)
-            channel = discord.utils.get(client.get_all_channels(), name="test")
+            channel = discord.utils.get(client.get_all_channels(), name="news")
             if channel:
                 await channel.send(
                     f"🎧 Tägliche Zufalls-Episode:\n**{episode['title']}**\n🔗 **[Hier anhören]({episode['link']})**"
