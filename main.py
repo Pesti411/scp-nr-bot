@@ -7,6 +7,7 @@ import html
 import aiohttp
 import csv
 import datetime
+import pytz
 
 # Konfiguration
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -82,7 +83,9 @@ async def post_random_episode_loop():
 
         # Wenn Zielzeit heute schon vorbei ist, nimm morgen
         if now >= target_time:
-            target_time += datetime.timedelta(days=1)
+            tz = pytz.timezone("Europe/Berlin")
+            now = datetime.datetime.now(tz)
+            target_time = now.replace(hour=13, minute=0, second=0, microsecond=0)
 
         wait_seconds = (target_time - now).total_seconds()
         print(f"[INFO] Warte bis {target_time} ({int(wait_seconds)} Sekunden)")
