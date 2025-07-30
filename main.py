@@ -46,6 +46,14 @@ SPECIAL_CODES = {
     }
 }
 
+CUSTOM_TRIGGERS = {
+    "Scarlet King": f"🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
+    "scharlach-rot": f"🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
+    "scharlach-roter": f"🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
+    "shy guy": f"🔎 Gefunden: **SCP-096: „Der Schüchterne Mann“**\n🎧 **[Hier anhören](https://nurkram.de/scp-096)**",
+    "peanut": f"🔎 Gefunden: **SCP-173: „Die Statue“**\n🎧 **[Hier anhören](https://nurkram.de/scp-173)**"
+}
+
 # Discord-Intents setzen
 intents = discord.Intents.default()
 intents.message_content = True
@@ -150,6 +158,13 @@ async def post_random_episode_loop():
 async def on_message(message):
     if message.author.bot or message.channel.name in BLACKLIST_CHANNELS:
         return
+
+    lower_msg = message.content.lower()
+
+    for trigger, response in CUSTOM_TRIGGERS.items():
+        if trigger in lower_msg:
+            await message.channel.send(response)
+            return
 
     msg = message.content.upper()
     
