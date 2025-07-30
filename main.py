@@ -91,7 +91,7 @@ async def post_random_episode_loop():
     await client.wait_until_ready()
     while True:
         now = datetime.datetime.now(tz)
-        target_time = now.replace(hour=16, minute=48, second=0, microsecond=0)
+        target_time = now.replace(hour=17, minute=10, second=0, microsecond=0)
 
         if now >= target_time:
             # Nächster Tag 12 Uhr
