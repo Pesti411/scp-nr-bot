@@ -175,15 +175,7 @@ async def on_message(message):
             await message.channel.send(info["response"], suppress_embeds=True)
             return
 
-    # Check gegen Plan-Tabelle
-    for code, date in schedule.items():
-        pattern = r'(?<![\w-])' + re.escape(code.upper()) + r'(?![\w-])'
-        if re.search(pattern, msg, re.IGNORECASE):
-            await message.channel.send(
-                f"📅 **{code.upper()}** ist laut Plan für {date} vorgesehen."
-            )
-            return
-
+    
     # Normale SCP-/SKP-Erkennung (aus Feed)
     for code, data in scp_links.items():
         code_upper = code.upper()
@@ -191,6 +183,15 @@ async def on_message(message):
         if re.search(pattern, msg, re.IGNORECASE):
             await message.channel.send(
                 f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
+            )
+            return
+            
+    # Check gegen Plan-Tabelle
+    for code, date in schedule.items():
+        pattern = r'(?<![\w-])' + re.escape(code.upper()) + r'(?![\w-])'
+        if re.search(pattern, msg, re.IGNORECASE):
+            await message.channel.send(
+                f"📅 **{code.upper()}** ist laut Plan für {date} vorgesehen."
             )
             break
 
