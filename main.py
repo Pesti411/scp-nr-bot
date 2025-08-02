@@ -126,32 +126,35 @@ async def on_ready():
 import datetime
 
 async def post_random_episode_loop():
-    tz = pytz.timezone("Europe/Berlin")
     await client.wait_until_ready()
+    tz = pytz.timezone("Europe/Berlin")
+
     while True:
         now = datetime.datetime.now(tz)
         target_time = now.replace(hour=12, minute=0, second=0, microsecond=0)
 
+        # Wenn Zielzeit heute schon vorbei ist, dann auf morgen setzen
         if now >= target_time:
-            # Nächster Tag 12 Uhr
-            target_time = target_time + datetime.timedelta(days=1)
+            target_time += datetime.timedelta(days=1)
 
         wait_seconds = (target_time - now).total_seconds()
         print(f"[INFO] Warte bis {target_time} ({int(wait_seconds)} Sekunden)")
 
         await asyncio.sleep(wait_seconds)
 
-        # Wähle zufällige Episode (aus allen)
+        # Wähle zufällige Episode
         if all_episodes:
             import random
             episode = random.choice(all_episodes)
-            channel = discord.utils.get(client.get_all_channels(), name="news")
+            channel = discord.utils.get(client.get_all_channels(), name="test")  # ggf. Channelname anpassen
             if channel:
                 await channel.send(
                     f"🎧 Tägliche Zufalls-Episode:\n**{episode['title']}**\n🔗 **[Hier anhören]({episode['link']})**"
                 )
+        else:
+            print("[WARNUNG] Keine Episoden gefunden. all_episodes ist leer!")
 
-        # Danach 24 Stunden warten
+        # Danach exakt 24 Stunden warten
         await asyncio.sleep(86400)
             
 @client.event
