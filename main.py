@@ -146,7 +146,7 @@ async def post_random_episode_loop():
         if all_episodes:
             import random
             episode = random.choice(all_episodes)
-            channel = discord.utils.get(client.get_all_channels(), name="test")  # ggf. Channelname anpassen
+            channel = discord.utils.get(client.get_all_channels(), name="news")  # ggf. Channelname anpassen
             if channel:
                 await channel.send(
                     f"🎧 Tägliche Zufalls-Episode:\n**{episode['title']}**\n🔗 **[Hier anhören]({episode['link']})**"
