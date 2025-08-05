@@ -108,20 +108,23 @@ async def fetch_schedule():
             if code and date:
                 schedule[code] = date
 
+# Task-Wächter
+tasks_started = False
+
 @client.event
-async def on_ready():
-    print(f"Eingeloggt als {client.user}")
-    update_feed()
-    await fetch_schedule()
+async def on_connect():
+    global tasks_started
+    print(f"[INFO] Bot verbunden mit Discord.")
 
-    async def refresh_data_loop():
-        while True:
-            await asyncio.sleep(3600)  # stündlich
-            update_feed()
-            await fetch_schedule()
+    if not tasks_started:
+        print("[INFO] Starte Initialdaten-Aktualisierung und Hintergrund-Tasks ...")
+        update_feed()
+        await fetch_schedule()
 
-    client.loop.create_task(refresh_data_loop())
-    client.loop.create_task(post_random_episode_loop())
+        client.loop.create_task(refresh_data_loop())
+        client.loop.create_task(post_random_episode_loop())
+
+        tasks_started = True
 
 import datetime
 
@@ -133,29 +136,36 @@ async def post_random_episode_loop():
         now = datetime.datetime.now(tz)
         target_time = now.replace(hour=12, minute=0, second=0, microsecond=0)
 
-        # Wenn Zielzeit heute schon vorbei ist, dann auf morgen setzen
         if now >= target_time:
             target_time += datetime.timedelta(days=1)
 
         wait_seconds = (target_time - now).total_seconds()
-        print(f"[INFO] Warte bis {target_time} ({int(wait_seconds)} Sekunden)")
+        print(f"[INFO] Warte auf nächste Zufalls-Episode bis {target_time} ({int(wait_seconds)} Sekunden)")
 
-        await asyncio.sleep(wait_seconds)
+        try:
+            await asyncio.sleep(wait_seconds)
 
-        # Wähle zufällige Episode
-        if all_episodes:
+            if not all_episodes:
+                print("[WARNUNG] Keine Episoden für Zufallsauswahl vorhanden!")
+                await asyncio.sleep(60)
+                continue
+
             import random
             episode = random.choice(all_episodes)
             channel = discord.utils.get(client.get_all_channels(), name="news")  # ggf. Channelname anpassen
+
             if channel:
                 await channel.send(
                     f"🎧 Tägliche Zufalls-Episode:\n**{episode['title']}**\n🔗 **[Hier anhören]({episode['link']})**"
                 )
-        else:
-            print("[WARNUNG] Keine Episoden gefunden. all_episodes ist leer!")
+                print(f"[INFO] Zufalls-Episode gepostet: {episode['title']}")
+            else:
+                print("[WARNUNG] Ziel-Channel 'news' nicht gefunden.")
 
-        # Danach exakt 24 Stunden warten
-        await asyncio.sleep(86400)
+        except Exception as e:
+            print(f"[FEHLER] Bei der Zufalls-Episoden-Task ist ein Fehler aufgetreten: {e}")
+
+        await asyncio.sleep(86400)  # Warte bis zum nächsten Tag
             
 @client.event
 async def on_message(message):
