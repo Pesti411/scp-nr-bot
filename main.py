@@ -111,6 +111,12 @@ async def fetch_schedule():
 # Task-Wächter
 tasks_started = False
 
+async def refresh_data_loop():
+    while True:
+        await asyncio.sleep(3600)  # stündlich aktualisieren
+        update_feed()
+        await fetch_schedule()
+        
 @client.event
 async def on_connect():
     global tasks_started
