@@ -137,41 +137,31 @@ import datetime
 async def post_random_episode_loop():
     await client.wait_until_ready()
     tz = pytz.timezone("Europe/Berlin")
+    last_posted_date = None
 
     while True:
-        now = datetime.datetime.now(tz)
-        target_time = now.replace(hour=12, minute=0, second=0, microsecond=0)
+        now = datetime.datetime.now(tz).date()
 
-        if now >= target_time:
-            target_time += datetime.timedelta(days=1)
-
-        wait_seconds = (target_time - now).total_seconds()
-        print(f"[INFO] Warte auf nächste Zufalls-Episode bis {target_time} ({int(wait_seconds)} Sekunden)")
-
-        try:
-            await asyncio.sleep(wait_seconds)
-
+        # Wenn noch nichts gepostet wurde oder ein neuer Tag begonnen hat
+        if last_posted_date != now:
             if not all_episodes:
                 print("[WARNUNG] Keine Episoden für Zufallsauswahl vorhanden!")
-                await asyncio.sleep(60)
-                continue
-
-            import random
-            episode = random.choice(all_episodes)
-            channel = discord.utils.get(client.get_all_channels(), name="news")  # ggf. Channelname anpassen
-
-            if channel:
-                await channel.send(
-                    f"🎧 Tägliche Zufalls-Episode:\n**{episode['title']}**\n🔗 **[Hier anhören]({episode['link']})**"
-                )
-                print(f"[INFO] Zufalls-Episode gepostet: {episode['title']}")
             else:
-                print("[WARNUNG] Ziel-Channel 'news' nicht gefunden.")
+                import random
+                episode = random.choice(all_episodes)
+                channel = discord.utils.get(client.get_all_channels(), name="news")
 
-        except Exception as e:
-            print(f"[FEHLER] Bei der Zufalls-Episoden-Task ist ein Fehler aufgetreten: {e}")
+                if channel:
+                    await channel.send(
+                        f"🎧 Tägliche Zufalls-Episode:\n**{episode['title']}**\n🔗 **[Hier anhören]({episode['link']})**"
+                    )
+                    print(f"[INFO] Zufalls-Episode gepostet: {episode['title']}")
+                    last_posted_date = now
+                else:
+                    print("[WARNUNG] Ziel-Channel 'news' nicht gefunden.")
 
-        await asyncio.sleep(86400)  # Warte bis zum nächsten Tag
+        # Warte 5 Minuten, bevor erneut geprüft wird
+        await asyncio.sleep(300)
             
 @client.event
 async def on_message(message):
