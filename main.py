@@ -212,26 +212,31 @@ async def on_message(message):
     if message.author.bot or message.channel.name in BLACKLIST_CHANNELS:
         return
 
-    lower_msg = message.content.lower()
-    msg_upper = message.content.upper()
+    content_raw = message.content
+    content_upper = content_raw.upper()
+
+    print(f"[DEBUG] Neue Nachricht: {content_raw}")
 
     # Eigene Trigger
     for trigger, response in CUSTOM_TRIGGERS.items():
-        if trigger in lower_msg:
+        if trigger in content_raw.lower():
+            print(f"[DEBUG] Eigener Trigger '{trigger}' gefunden")
             await message.channel.send(response)
             return
 
     # Spezialcodes
     for special_code, info in SPECIAL_CODES.items():
         pattern = r'(?<![\w-])' + re.escape(special_code) + r'(?![\w-])'
-        if re.search(pattern, msg_upper, re.IGNORECASE):
+        if re.search(pattern, content_upper, re.IGNORECASE):
+            print(f"[DEBUG] Spezialcode '{special_code}' gefunden")
             await message.channel.send(info["response"], suppress_embeds=True)
             return
 
-    # 1. Zuerst SCP-Links checken
+    # 1. SCP-Links zuerst prüfen
     for code in scp_links.keys():
         pattern = r'(?<![\w-])' + re.escape(code.upper()) + r'(?![\w-])'
-        if re.search(pattern, msg_upper, re.IGNORECASE):
+        if re.search(pattern, content_upper, re.IGNORECASE):
+            print(f"[DEBUG] Code '{code}' im Feed gefunden")
             data = scp_links[code]
             response = f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
             if code in schedule:
@@ -239,19 +244,20 @@ async def on_message(message):
             await message.channel.send(response)
             return
 
-    # 2. Dann Codes prüfen, die nur im Plan sind (also nicht in scp_links)
+    # 2. Codes nur im Plan prüfen
     for code in schedule.keys():
         if code not in scp_links:
             pattern = r'(?<![\w-])' + re.escape(code.upper()) + r'(?![\w-])'
-            if re.search(pattern, msg_upper, re.IGNORECASE):
+            if re.search(pattern, content_upper, re.IGNORECASE):
+                print(f"[DEBUG] Code '{code}' nur im Plan gefunden")
                 await message.channel.send(
                     f"📅 **{code.upper()}** ist laut Plan für {schedule[code]} vorgesehen."
                 )
                 return
 
+    print("[DEBUG] Keine Codes gefunden.")
     await client.process_commands(message)
 
-            
 async def post_latest_wordpress_post_once():
     print("[INFO] Starte einmaliges Posten des neuesten Wordpress-Beitrags ...")
     
