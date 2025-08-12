@@ -213,6 +213,7 @@ async def on_message(message):
         return
 
     lower_msg = message.content.lower()
+    msg_upper = message.content.upper()
 
     # Eigene Trigger
     for trigger, response in CUSTOM_TRIGGERS.items():
@@ -220,8 +221,6 @@ async def on_message(message):
             await message.channel.send(response)
             return
 
-    msg_upper = message.content.upper()
-    
     # Spezialcodes
     for special_code, info in SPECIAL_CODES.items():
         pattern = r'(?<![\w-])' + re.escape(special_code) + r'(?![\w-])'
@@ -229,24 +228,25 @@ async def on_message(message):
             await message.channel.send(info["response"], suppress_embeds=True)
             return
 
-    # SCP-/SKP-Codes aus Feed
-    for code, data in scp_links.items():
-        code_upper = code.upper()
-        pattern = r'(?<![\w-])' + re.escape(code_upper) + r'(?![\w-])'
-        if re.search(pattern, msg_upper, re.IGNORECASE):
-            await message.channel.send(
-                f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
-            )
-            return
-            
-    # Check gegen Plan aus Google Sheet
-    for code, date in schedule.items():
+    # Priorisierte SCP-/SKP-Codes aus Feed & Google Sheet
+    for code in set(list(scp_links.keys()) + list(schedule.keys())):
         pattern = r'(?<![\w-])' + re.escape(code.upper()) + r'(?![\w-])'
         if re.search(pattern, msg_upper, re.IGNORECASE):
-            await message.channel.send(
-                f"📅 **{code.upper()}** ist laut Plan für {date} vorgesehen."
-            )
-            return
+            if code in scp_links:
+                data = scp_links[code]
+                response = f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
+                # Wenn zusätzlich Datum im Plan vorhanden, ergänzen
+                if code in schedule:
+                    response += f"\n📅 Veröffentlichungsdatum laut Plan: {schedule[code]}"
+                await message.channel.send(response)
+                return
+            elif code in schedule:
+                await message.channel.send(
+                    f"📅 **{code.upper()}** ist laut Plan für {schedule[code]} vorgesehen."
+                )
+                return
+
+    await client.process_commands(message)
             
 async def post_latest_wordpress_post_once():
     print("[INFO] Starte einmaliges Posten des neuesten Wordpress-Beitrags ...")
