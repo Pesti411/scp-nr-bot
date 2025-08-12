@@ -61,14 +61,18 @@ async def fetch_schedule():
     schedule.clear()
     async with aiohttp.ClientSession() as session:
         async with session.get(SCHEDULE_CSV_URL) as resp:
-            text = await resp.text()
-    reader = csv.reader(text.splitlines())
-    for row in reader:
-        if len(row) >= 4:
-            code = row[0].strip().lower()
-            date = row[3].strip()
-            if code and date:
-                schedule[code] = date
+            if resp.status == 200:
+                text = await resp.text()
+                reader = csv.reader(text.splitlines())
+                for row in reader:
+                    if len(row) >= 4:
+                        code = row[0].strip().lower()
+                        date = row[3].strip()
+                        if code and date:
+                            schedule[code] = date
+            else:
+                print(f"[WARNUNG] CSV konnte nicht geladen werden, Status: {resp.status}")
+
 
 def clean_and_format_text(raw_html_content):
     # HTML-Tags entfernen
@@ -164,36 +168,61 @@ async def post_random_episode_loop():
 
 @client.event
 async def on_message(message):
-    if message.author == client.user:
-        return
-    if isinstance(message.channel, discord.DMChannel):
-        return
-    if message.channel.name != "test":
+    if message.author.bot or message.channel.name in BLACKLIST_CHANNELS:
         return
 
-    content_lower = message.content.lower()
+    lower_msg = message.content.lower()
 
-    # Wenn Befehl !wp
-    if content_lower == "!wp":
-        try:
-            r = requests.get(WORDPRESS_FEED_URL, timeout=10)
-            if r.status_code == 200:
-                posts = r.json()
-                if posts:
-                    post = {
-                        "title": posts[0]['title']['rendered'],
-                        "content": posts[0]['content']['rendered'],
-                        "link": posts[0]['link']
-                    }
-                    msg = format_wordpress_post(post)
-                    await message.channel.send(msg)
-                else:
-                    await message.channel.send("Keine Wordpress-Beiträge gefunden.")
-            else:
-                await message.channel.send("Fehler beim Abrufen der Wordpress-Beiträge.")
-        except Exception as e:
-            await message.channel.send(f"Fehler: {e}")
-        return
+    # Eigene Trigger
+    for trigger, response in CUSTOM_TRIGGERS.items():
+        if trigger in lower_msg:
+            await message.channel.send(response)
+            return
+
+    msg_upper = message.content.upper()
+    
+    # Spezialcodes
+    for special_code, info in SPECIAL_CODES.items():
+        pattern = r'(?<![\w-])' + re.escape(special_code) + r'(?![\w-])'
+        if re.search(pattern, msg_upper, re.IGNORECASE):
+            await message.channel.send(info["response"], suppress_embeds=True)
+            return
+
+    # SCP-/SKP-Codes aus Feed
+    for code, data in scp_links.items():
+        code_upper = code.upper()
+        pattern = r'(?<![\w-])' + re.escape(code_upper) + r'(?![\w-])'
+        if re.search(pattern, msg_upper, re.IGNORECASE):
+            await message.channel.send(
+                f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
+            )
+            return
+            
+    # Check gegen Plan aus Google Sheet
+    for code, date in schedule.items():
+        pattern = r'(?<![\w-])' + re.escape(code.upper()) + r'(?![\w-])'
+        if re.search(pattern, msg_upper, re.IGNORECASE):
+            await message.channel.send(
+                f"📅 **{code.upper()}** ist laut Plan für {date} vorgesehen."
+            )
+            return
+
+@client.event
+async def on_connect():
+    global tasks_started
+    print(f"[INFO] Bot verbunden mit Discord.")
+
+    if not tasks_started:
+        print("[INFO] Starte Initialdaten-Aktualisierung und Hintergrund-Tasks ...")
+        update_feed()
+        await fetch_schedule()
+
+        client.loop.create_task(refresh_data_loop())
+        client.loop.create_task(post_random_episode_loop())
+        client.loop.create_task(post_latest_wordpress_post_once())
+
+        tasks_started = True
+
 
     # Testpost mit Beispieltext (direkt posten ohne API)
     if content_lower == "!wp-test":
