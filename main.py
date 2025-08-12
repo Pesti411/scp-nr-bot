@@ -142,10 +142,12 @@ async def post_random_episode_loop():
     while True:
         now = datetime.datetime.now(tz)
         today = now.date()
-        target_time = now.replace(hour=12, minute=0, second=0, microsecond=0)
 
-        # Falls noch nicht gepostet wurde und die Uhrzeit >= 12:00 ist
-        if last_posted_date != today and now >= target_time:
+        target_time = now.replace(hour=12, minute=0, second=0, microsecond=0)
+        latest_time = now.replace(hour=13, minute=0, second=0, microsecond=0)
+
+        # Prüfen: Noch nicht gepostet UND zwischen 12:00 und 13:00 Uhr
+        if last_posted_date != today and target_time <= now < latest_time:
             if not all_episodes:
                 print("[WARNUNG] Keine Episoden für Zufallsauswahl vorhanden!")
             else:
@@ -162,7 +164,7 @@ async def post_random_episode_loop():
                 else:
                     print("[WARNUNG] Ziel-Channel 'news' nicht gefunden.")
 
-        # alle 5 Minuten erneut prüfen
+        # Alle 5 Minuten erneut prüfen
         await asyncio.sleep(300)
             
 @client.event
