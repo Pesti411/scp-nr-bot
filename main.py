@@ -213,13 +213,14 @@ async def on_message(message):
         return
 
     content_raw = message.content
+    content_lower = content_raw.lower()
     content_upper = content_raw.upper()
 
     print(f"[DEBUG] Neue Nachricht: {content_raw}")
 
     # Eigene Trigger
     for trigger, response in CUSTOM_TRIGGERS.items():
-        if trigger in content_raw.lower():
+        if trigger in content_lower:
             print(f"[DEBUG] Eigener Trigger '{trigger}' gefunden")
             await message.channel.send(response)
             return
@@ -255,6 +256,40 @@ async def on_message(message):
                 )
                 return
 
+    # Spezieller Test-Command (WP-Test)
+    if content_lower == "!wp-test":
+        dummy_post = {
+            "title": "SCP-2291: „Spaßkästchen“",
+            "content": (
+                "SCP-2291 ist eine Box aus Wellpappe mit einer Kantenlänge von 15cm. "
+                "Das Wort „Spaß“ ist auf jeder Seite in riesen Großbuchstaben aufgedruckt. "
+                "Autor: arnbobo\nÜbersetzung: Dreamler1433"
+            ),
+            "link": "https://nurkram.de/scp-2291"
+        }
+        msg = format_wordpress_post(dummy_post)
+        await message.channel.send(msg)
+        return
+
+    # SCP-Code Erkennung & Reaktion (zusätzliche Prüfung)
+    found_code = None
+    for code in scp_links.keys():
+        if code in content_lower:
+            found_code = code
+            break
+
+    if found_code:
+        date = schedule.get(found_code, None)
+        post = scp_links.get(found_code)
+        if post:
+            title = post['title']
+            link = post['link']
+            response = f"🔎 Gefunden: **{title}**\n🎧 **[Hier anhören]({link})**"
+            if date:
+                response += f"\n📅 Veröffentlichungsdatum: {date}"
+            await message.channel.send(response)
+        return
+
     print("[DEBUG] Keine Codes gefunden.")
     await client.process_commands(message)
 
@@ -276,47 +311,6 @@ async def on_connect():
         client.loop.create_task(post_latest_wordpress_post_once())
 
         tasks_started = True
-
-@client.event
-async def on_message(message):
-    if message.author.bot:
-        return
-
-    content_lower = message.content.lower()
-
-    # Testpost mit Beispieltext (direkt posten ohne API)
-    if content_lower == "!wp-test":
-        dummy_post = {
-            "title": "SCP-2291: „Spaßkästchen“",
-            "content": (
-                "SCP-2291 ist eine Box aus Wellpappe mit einer Kantenlänge von 15cm. "
-                "Das Wort „Spaß“ ist auf jeder Seite in riesen Großbuchstaben aufgedruckt. "
-                "Autor: arnbobo\nÜbersetzung: Dreamler1433"
-            ),
-            "link": "https://nurkram.de/scp-2291"
-        }
-        msg = format_wordpress_post(dummy_post)
-        await message.channel.send(msg)
-        return
-
-    # SCP-Code Erkennung & Reaktion
-    found_code = None
-    for code in scp_links.keys():
-        if code in content_lower:
-            found_code = code
-            break
-
-    if found_code:
-        date = schedule.get(found_code, None)
-        post = scp_links.get(found_code)
-        if post:
-            title = post['title']
-            link = post['link']
-            response = f"🔎 Gefunden: **{title}**\n🎧 **[Hier anhören]({link})**"
-            if date:
-                response += f"\n📅 Veröffentlichungsdatum: {date}"
-            await message.channel.send(response)
-        return
 
 client.run(TOKEN)
 
