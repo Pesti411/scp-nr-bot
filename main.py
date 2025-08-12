@@ -9,7 +9,7 @@ import csv
 import datetime
 import pytz
 
-# Konfiguration
+# --- Konfiguration ---
 TOKEN = os.getenv("DISCORD_TOKEN")
 FEED_URL = "https://q8reci.podcaster.de/scp-deutsch.rss"
 SCHEDULE_CSV_URL = "https://docs.google.com/spreadsheets/d/125iGFTWMVKImY_abjac1Lfal78o-dFzQalq6rT_YDxM/export?format=csv"
@@ -55,7 +55,7 @@ CUSTOM_TRIGGERS = {
     "peanut": f"🔎 Gefunden: **SCP-173: „Die Statue“**\n🎧 **[Hier anhören](https://nurkram.de/scp-173)**"
 }
 
-# Discord-Intents setzen
+# --- Discord-Intents ---
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -64,10 +64,6 @@ client = discord.Client(intents=intents)
 scp_links = {}      # Nur Folgen mit SCP-/SKP-Code
 all_episodes = []   # Alle Folgen im Feed
 schedule = {}
-
-# --- Discord-Intents ---
-intents = discord.Intents.default()
-intents.message_content = True
 
 def parse_scp_code(title):
     if not (title.startswith("SCP-") or title.startswith("SKP-")):
@@ -113,7 +109,63 @@ async def fetch_schedule():
             if code and date:
                 schedule[code] = date
 
-# Task-Wächter
+# --- Wordpress-Feed abrufen und formatieren ---
+async def fetch_wordpress_posts():
+    async with aiohttp.ClientSession() as session:
+        async with session.get(WORDPRESS_FEED_URL) as resp:
+            if resp.status != 200:
+                print(f"[ERROR] Wordpress-Feed konnte nicht geladen werden: Status {resp.status}")
+                return None
+            data = await resp.json()
+
+    if not data:
+        print("[TEST] Kein Wordpress-Post gefunden")
+        return None
+
+    newest = data[0]
+
+    title = newest.get("title", {}).get("rendered", "Kein Titel")
+    content = newest.get("content", {}).get("rendered", "")
+    link = newest.get("link", "")
+
+    return {
+        "title": title,
+        "content": content,
+        "link": link
+    }
+
+def format_wordpress_post(post):
+    # HTML-Tags entfernen, einfach und schnell
+    text = re.sub(r'<[^>]+>', '', post['content'])
+    text = text.strip().replace('\n', ' ')
+    # Optional: Text auf 300 Zeichen kürzen
+    if len(text) > 300:
+        text = text[:297] + "..."
+
+    msg = (
+        f":newspaper2: :speaker: **Neue Vertonung von Pesti | {post['title']}**\n"
+        f"> {text}\n"
+        f"{post['link']}"
+    )
+    return msg
+
+async def post_latest_wordpress_post_once():
+    await client.wait_until_ready()
+
+    post = await fetch_wordpress_posts()
+    if not post:
+        return
+
+    message = format_wordpress_post(post)
+
+    channel = discord.utils.get(client.get_all_channels(), name="test")
+    if channel:
+        await channel.send(f"[TEST] Neuester Wordpress-Beitrag:\n{message}")
+        print(f"[TEST] Neuester Wordpress-Beitrag gepostet: {post['title']}")
+    else:
+        print("[TEST] Channel 'test' nicht gefunden.")
+
+# Task-Wächter, nur einmal starten
 tasks_started = False
 
 async def refresh_data_loop():
@@ -121,23 +173,6 @@ async def refresh_data_loop():
         await asyncio.sleep(3600)  # stündlich aktualisieren
         update_feed()
         await fetch_schedule()
-        
-@client.event
-async def on_connect():
-    global tasks_started
-    print(f"[INFO] Bot verbunden mit Discord.")
-
-    if not tasks_started:
-        print("[INFO] Starte Initialdaten-Aktualisierung und Hintergrund-Tasks ...")
-        update_feed()
-        await fetch_schedule()
-
-        client.loop.create_task(refresh_data_loop())
-        client.loop.create_task(post_random_episode_loop())
-
-        tasks_started = True
-
-import datetime
 
 async def post_random_episode_loop():
     await client.wait_until_ready()
@@ -151,7 +186,6 @@ async def post_random_episode_loop():
         target_time = now.replace(hour=12, minute=0, second=0, microsecond=0)
         latest_time = now.replace(hour=13, minute=0, second=0, microsecond=0)
 
-        # Prüfen: Noch nicht gepostet UND zwischen 12:00 und 13:00 Uhr
         if last_posted_date != today and target_time <= now < latest_time:
             if not all_episodes:
                 print("[WARNUNG] Keine Episoden für Zufallsauswahl vorhanden!")
@@ -169,125 +203,7 @@ async def post_random_episode_loop():
                 else:
                     print("[WARNUNG] Ziel-Channel 'news' nicht gefunden.")
 
-        # Alle 5 Minuten erneut prüfen
         await asyncio.sleep(300)
-            
-@client.event
-async def on_message(message):
-    if message.author.bot or message.channel.name in BLACKLIST_CHANNELS:
-        return
-
-    lower_msg = message.content.lower()
-
-    for trigger, response in CUSTOM_TRIGGERS.items():
-        if trigger in lower_msg:
-            await message.channel.send(response)
-            return
-
-    msg = message.content.upper()
-    
-    # Individuelle Antworten auf spezielle Codes
-    for special_code, info in SPECIAL_CODES.items():
-        pattern = r'(?<![\w-])' + re.escape(special_code) + r'(?![\w-])'
-        if re.search(pattern, msg, re.IGNORECASE):
-            await message.channel.send(info["response"], suppress_embeds=True)
-            return
-
-    
-    # Normale SCP-/SKP-Erkennung (aus Feed)
-    for code, data in scp_links.items():
-        code_upper = code.upper()
-        pattern = r'(?<![\w-])' + re.escape(code_upper) + r'(?![\w-])'
-        if re.search(pattern, msg, re.IGNORECASE):
-            await message.channel.send(
-                f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
-            )
-            return
-            
-    # Check gegen Plan-Tabelle
-    for code, date in schedule.items():
-        pattern = r'(?<![\w-])' + re.escape(code.upper()) + r'(?![\w-])'
-        if re.search(pattern, msg, re.IGNORECASE):
-            await message.channel.send(
-                f"📅 **{code.upper()}** ist laut Plan für {date} vorgesehen."
-            )
-            break
-
-def parse_wordpress_post(entry):
-    """Extrahiert und formatiert den Wordpress-Beitrag nach deinem Schema.
-
-    Beispiel Input (entry.summary): 
-        SCP-2291: „Spaßkästchen“
-        SCP-2291 ist eine Box aus Wellpappe mit einer Kantenlänge von 15cm. Das Wort „Spaẞ“ ist auf jeder Seite in riesen Großbuchstaben aufgedruckt.
-
-        Autor: arnbobo
-
-        Übersetzung: Dreamler1433
-
-        http://scp-wiki-de.wikidot.com/scp-2291
-    """
-    text = html.unescape(entry.summary) if hasattr(entry, "summary") else ""
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    
-    # Titel aus Feed-Entry (z.B. "SCP-2291: „Spaßkästchen“")
-    title = html.unescape(entry.title).strip()
-
-    # Standardfelder initialisieren
-    beschreibung = ""
-    autor = None
-    uebersetzung = None
-    url = entry.link.strip() if hasattr(entry, "link") else ""
-
-    # Suche Autor, Übersetzer, URL im Text, den Rest als Beschreibung
-    autor_pattern = re.compile(r"Autor:\s*(.+)", re.IGNORECASE)
-    uebersetzung_pattern = re.compile(r"Übersetzung:\s*(.+)", re.IGNORECASE)
-    url_pattern = re.compile(r"https?://\S+")
-
-    beschreibung_lines = []
-    for line in lines:
-        if autor_pattern.match(line):
-            autor = autor_pattern.match(line).group(1).strip()
-        elif uebersetzung_pattern.match(line):
-            uebersetzung = uebersetzung_pattern.match(line).group(1).strip()
-        elif url_pattern.match(line):
-            url = url_pattern.match(line).group(0).strip()
-        else:
-            # alle anderen Zeilen als Beschreibung, außer Titelzeile
-            if line != title:
-                beschreibung_lines.append(line)
-
-    beschreibung = " ".join(beschreibung_lines)
-
-    # Formatieren nach deinem Wunsch
-    msg = (
-        f":newspaper2: :speaker: **Neue Vertonung von Pesti | {title}**\n"
-        f"> {beschreibung}\n"
-        f"> Autor: {autor}\n"
-    )
-    if uebersetzung:
-        msg += f"> Übersetzer: {uebersetzung}\n"
-    msg += url
-
-    return msg
-
-
-async def post_latest_wordpress_post_once():
-    await client.wait_until_ready()
-
-    feed = feedparser.parse(WORDPRESS_FEED_URL)
-    if not feed.entries:
-        print("[TEST] Kein Eintrag im Wordpress-Feed gefunden.")
-        return
-
-    newest = feed.entries[0]
-    message = parse_wordpress_post(newest)
-    channel = discord.utils.get(client.get_all_channels(), name="test")
-    if channel:
-        await channel.send(f"[TEST] Neuester Wordpress-Beitrag:\n{message}")
-        print(f"[TEST] Neuester Wordpress-Beitrag gepostet: {newest.title}")
-    else:
-        print("[TEST] Channel 'test' nicht gefunden.")
-
 
 @client.event
 async def on_connect():
@@ -301,9 +217,41 @@ async def on_connect():
 
         client.loop.create_task(refresh_data_loop())
         client.loop.create_task(post_random_episode_loop())
-
-        client.loop.create_task(post_latest_wordpress_post_once())  # Testpost
+        client.loop.create_task(post_latest_wordpress_post_once())  # Testpost beim Start
 
         tasks_started = True
+
+@client.event
+async def on_message(message):
+    if message.author.bot or message.channel.name in BLACKLIST_CHANNELS:
+        return
+
+    lower_msg = message.content.lower()
+
+    for trigger, response in CUSTOM_TRIGGERS.items():
+        if trigger in lower_msg:
+            await message.channel.send(response)
+            return
+
+    msg = message.content.upper()
+
+    # Spezielle Codes
+    for special_code, info in SPECIAL_CODES.items():
+        pattern = r'(?<![\w-])' + re.escape(special_code) + r'(?![\w-])'
+        if re.search(pattern, msg, re.IGNORECASE):
+            await message.channel.send(info["response"], suppress_embeds=True)
+            return
+
+    # Normale SCP-/SKP-Erkennung (aus Feed)
+    for code, data in scp_links.items():
+        code_upper = code.upper()
+        pattern = r'(?<![\w-])' + re.escape(code_upper) + r'(?![\w-])'
+        if re.search(pattern, msg, re.IGNORECASE):
+            await message.channel.send(f"🎧 Neue Vertonung: **{data['title']}**\n🔗 **[Hier anhören]({data['link']})**", suppress_embeds=True)
+            return
+
+    # Nicht gefunden
+    # (Optional: keine Antwort)
+    # await message.channel.send("Kein Ergebnis gefunden.")
 
 client.run(TOKEN)
