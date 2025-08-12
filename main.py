@@ -8,6 +8,7 @@ import aiohttp
 import csv
 import datetime
 import pytz
+import requests
 
 # Konfiguration
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -16,53 +17,13 @@ SCHEDULE_CSV_URL = "https://docs.google.com/spreadsheets/d/125iGFTWMVKImY_abjac1
 WORDPRESS_FEED_URL = "https://nurkram.de/wp-json/wp/v2/posts?categories=703&per_page=5"
 BLACKLIST_CHANNELS = ["discord-vorschläge", "umfragen", "roleplay", "vertonungsplan", "news"]
 
-SPECIAL_CODES = {
-    "SCP-001": {
-        "response": (
-            "**SCP-001 ist besonders – es gibt mehrere Versionen!**\n"
-            "🔗 Übersicht aller verfügbarer Vertonungen:\n"
-            "- [SCP-001 – S. D. Lockes Vorschlag: „Wenn der Tag anbricht“](https://nurkram.de/scp-001-s-d-locke)\n"
-            "- [SCP-001: CODE NAME: „Tufto – Der Scarlet King“](https://nurkram.de/scp-001-tufto)\n"
-            "- [SCP-001: CODE NAME: „Tanhony II – Heult der Schwarze Mond?“](https://nurkram.de/scp-001-tanhony-ii)\n"
-            "- [SCP-001: CODE NAME: „Dr. Clef – Der Torwächter“](https://nurkram.de/scp-001-dr-clef)\n"
-            "- [SCP-001: CODE NAME: „Wrong – Der Konsens“](https://nurkram.de/scp-001-wrong)\n"
-            "- [SCP-001: CODE NAME: „Djoric/Dmatix – Sechsunddreißig“](https://nurkram.de/scp-001-djoric-dmatix)\n"
-            "- [SCP-001: CODE NAME: „Spike Brennan – Gottes blinder Fleck“](https://nurkram.de/scp-001-spike-brennan)\n"
-            "- [SCP-001-IT / GRAF: „Der Drache der Offenbarung“](https://nurkram.de/scp-001-it-graf)\n"
-            "- [SCP-001-DE: CODE NAME: „Dr. Ore – Der höchste Konflikt“](https://nurkram.de/scp-001-de-dr-ore)\n"
-            "- [SCP-001-DE: CODE NAME: „Dr. Schwarz – V9 Erreger“](https://nurkram.de/scp-001-de-dr-schwarz)\n"
-            "- [SCP-001-DE: CODE NAME: „Dr Leo – Trabant / Ende einer Ära“](https://nurkram.de/scp-001-de-dr-leo)\n"
-            "- [SCP-001-DE: CODE NAME: „Thielemann – Wir stehen über Justitia“](https://nurkram.de/scp-001-de-thielemann)\n"
-            "- [SCP-001-KO: CODE NAME: „L.H. Sein – Durch Menschen“](https://nurkram.de/scp-001-ko-lh-sein)\n"
-            "- [SCP-LA-001: CODE NAME: „Fulmen – Die Sense“](https://nurkram.de/scp-la-001-sense)\n"
-            "- [SCP-LA-001: CODE NAME: „Praetor Bold – Sprache“](https://nurkram.de/scp-la-001-sprache)\n"
-            ":bulb: SCP-001-DE: CODE NAME: „Abyssus - Abgrund der Realität“ *ist bereits geplant, ich bitte um Geduld*\n"
-        )
-    },
-    "SCP-6500": {
-        "response": f"🔎 Gefunden: **SCP-6500: „Unvermeidbar“**\n🎧 **[Hier anhören](https://nurkram.de/scp-6500)**"
-    },
-    "SCP-1730": {
-        "response": f"🔎 Gefunden: **SCP-1730: „Was ist mit Standort-13 passiert?“**\n🎧 **[Hier anhören](https://nurkram.de/scp-1730)**"
-    }
-}
-
-CUSTOM_TRIGGERS = {
-    "scarlet king": f"🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
-    "scharlach-rot": f"🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
-    "scharlach-roter": f"🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
-    "shy guy": f"🔎 Gefunden: **SCP-096: „Der Schüchterne Mann“**\n🎧 **[Hier anhören](https://nurkram.de/scp-096)**",
-    "peanut": f"🔎 Gefunden: **SCP-173: „Die Statue“**\n🎧 **[Hier anhören](https://nurkram.de/scp-173)**"
-}
-
-# Discord-Intents setzen
 intents = discord.Intents.default()
 intents.message_content = True
 
 client = discord.Client(intents=intents)
 
-scp_links = {}      # Nur Folgen mit SCP-/SKP-Code
-all_episodes = []   # Alle Folgen im Feed
+scp_links = {}
+all_episodes = []
 schedule = {}
 
 def parse_scp_code(title):
@@ -108,45 +69,6 @@ async def fetch_schedule():
             date = row[3].strip()
             if code and date:
                 schedule[code] = date
-
-tasks_started = False
-
-async def refresh_data_loop():
-    while True:
-        await asyncio.sleep(3600)  # stündlich aktualisieren
-        update_feed()
-        await fetch_schedule()
-        
-async def post_random_episode_loop():
-    await client.wait_until_ready()
-    tz = pytz.timezone("Europe/Berlin")
-    last_posted_date = None
-
-    while True:
-        now = datetime.datetime.now(tz)
-        today = now.date()
-
-        target_time = now.replace(hour=12, minute=0, second=0, microsecond=0)
-        latest_time = now.replace(hour=13, minute=0, second=0, microsecond=0)
-
-        if last_posted_date != today and target_time <= now < latest_time:
-            if not all_episodes:
-                print("[WARNUNG] Keine Episoden für Zufallsauswahl vorhanden!")
-            else:
-                import random
-                episode = random.choice(all_episodes)
-                channel = discord.utils.get(client.get_all_channels(), name="news")
-
-                if channel:
-                    await channel.send(
-                        f"🎧 Tägliche Zufalls-Episode:\n**{episode['title']}**\n🔗 **[Hier anhören]({episode['link']})**"
-                    )
-                    print(f"[INFO] Zufalls-Episode gepostet: {episode['title']}")
-                    last_posted_date = today
-                else:
-                    print("[WARNUNG] Ziel-Channel 'news' nicht gefunden.")
-
-        await asyncio.sleep(300)
 
 def clean_and_format_text(raw_html_content):
     # HTML-Tags entfernen
@@ -200,11 +122,45 @@ async def on_ready():
     print(f"[INFO] Eingeloggt als {client.user}")
     update_feed()
     await fetch_schedule()
-    global tasks_started
-    if not tasks_started:
-        client.loop.create_task(refresh_data_loop())
-        client.loop.create_task(post_random_episode_loop())
-        tasks_started = True
+    client.loop.create_task(refresh_data_loop())
+    client.loop.create_task(post_random_episode_loop())
+
+async def refresh_data_loop():
+    while True:
+        update_feed()
+        await fetch_schedule()
+        await asyncio.sleep(3600)  # jede Stunde
+
+async def post_random_episode_loop():
+    await client.wait_until_ready()
+    tz = pytz.timezone("Europe/Berlin")
+    last_posted_date = None
+
+    while True:
+        now = datetime.datetime.now(tz)
+        today = now.date()
+
+        target_time = now.replace(hour=12, minute=0, second=0, microsecond=0)
+        latest_time = now.replace(hour=13, minute=0, second=0, microsecond=0)
+
+        if last_posted_date != today and target_time <= now < latest_time:
+            if not all_episodes:
+                print("[WARNUNG] Keine Episoden für Zufallsauswahl vorhanden!")
+            else:
+                import random
+                episode = random.choice(all_episodes)
+                channel = discord.utils.get(client.get_all_channels(), name="news")
+
+                if channel:
+                    await channel.send(
+                        f"🎧 Tägliche Zufalls-Episode:\n**{episode['title']}**\n🔗 **[Hier anhören]({episode['link']})**"
+                    )
+                    print(f"[INFO] Zufalls-Episode gepostet: {episode['title']}")
+                    last_posted_date = today
+                else:
+                    print("[WARNUNG] Ziel-Channel 'news' nicht gefunden.")
+
+        await asyncio.sleep(300)
 
 @client.event
 async def on_message(message):
@@ -212,32 +168,59 @@ async def on_message(message):
         return
     if isinstance(message.channel, discord.DMChannel):
         return
-    if message.channel.name not in ["test"] or message.channel.name in BLACKLIST_CHANNELS:
+    if message.channel.name != "test":
         return
-    
+
     content_lower = message.content.lower()
 
-    # Erst auf SCP-Codes prüfen
+    # Wenn Befehl !wp
+    if content_lower == "!wp":
+        try:
+            r = requests.get(WORDPRESS_FEED_URL, timeout=10)
+            if r.status_code == 200:
+                posts = r.json()
+                if posts:
+                    post = {
+                        "title": posts[0]['title']['rendered'],
+                        "content": posts[0]['content']['rendered'],
+                        "link": posts[0]['link']
+                    }
+                    msg = format_wordpress_post(post)
+                    await message.channel.send(msg)
+                else:
+                    await message.channel.send("Keine Wordpress-Beiträge gefunden.")
+            else:
+                await message.channel.send("Fehler beim Abrufen der Wordpress-Beiträge.")
+        except Exception as e:
+            await message.channel.send(f"Fehler: {e}")
+        return
+
+    # Testpost mit Beispieltext (direkt posten ohne API)
+    if content_lower == "!wp-test":
+        dummy_post = {
+            "title": "SCP-2291: „Spaßkästchen“",
+            "content": (
+                "SCP-2291 ist eine Box aus Wellpappe mit einer Kantenlänge von 15cm. "
+                "Das Wort „Spaß“ ist auf jeder Seite in riesen Großbuchstaben aufgedruckt. "
+                "Autor: arnbobo\nÜbersetzung: Dreamler1433\n"
+                "http://scp-wiki-de.wikidot.com/scp-2291 document.createElement('audio'); https://q8reci...."
+            ),
+            "link": "https://nurkram.de/scp-2291"
+        }
+        msg = format_wordpress_post(dummy_post)
+        await message.channel.send(msg)
+        return
+
+    # SCP-Code Erkennung & Reaktion
     found_code = None
     for code in scp_links.keys():
         if code in content_lower:
             found_code = code
             break
 
-    # Custom Trigger
-    if not found_code:
-        for key in CUSTOM_TRIGGERS.keys():
-            if key in content_lower:
-                await message.channel.send(CUSTOM_TRIGGERS[key])
-                return
-
-    # Spezielle Codes
-    if found_code in SPECIAL_CODES:
-        await message.channel.send(SPECIAL_CODES[found_code]["response"])
-        return
+    # Beispiel Special Codes etc. hier weggelassen - kannst du bei Bedarf wieder einbauen
 
     if found_code:
-        # Datum aus Schedule laden, wenn vorhanden
         date = schedule.get(found_code, None)
         post = scp_links.get(found_code)
         if post:
@@ -248,23 +231,5 @@ async def on_message(message):
                 response += f"\n📅 Veröffentlichungsdatum: {date}"
             await message.channel.send(response)
             return
-
-    # Wordpress-Beitrag posten (nur als Beispiel, z.B. bei Befehl !wp)
-    if message.content.strip().lower() == "!wp":
-        # Beispiel: hole letzten Wordpress-Beitrag via API
-        import requests
-        r = requests.get(WORDPRESS_FEED_URL)
-        if r.status_code == 200:
-            posts = r.json()
-            if posts:
-                post = {
-                    "title": posts[0]['title']['rendered'],
-                    "content": posts[0]['content']['rendered'],
-                    "link": posts[0]['link']
-                }
-                msg = format_wordpress_post(post)
-                await message.channel.send(msg)
-        else:
-            await message.channel.send("Fehler beim Abrufen der Wordpress-Beiträge.")
 
 client.run(TOKEN)
