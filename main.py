@@ -10,6 +10,8 @@ import datetime
 import pytz
 import requests
 
+tasks_started = False
+
 # Konfiguration
 TOKEN = os.getenv("DISCORD_TOKEN")
 FEED_URL = "https://q8reci.podcaster.de/scp-deutsch.rss"
