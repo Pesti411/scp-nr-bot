@@ -258,8 +258,7 @@ async def on_connect():
 
     if not tasks_started:
         print("[INFO] Starte Initialdaten-Aktualisierung und Hintergrund-Tasks ...")
-        update_feed()             # Falls sync; wenn async, await update_feed()
-        await update_feed()
+        update_feed()             
         await fetch_schedule()
 
         client.loop.create_task(refresh_data_loop())
