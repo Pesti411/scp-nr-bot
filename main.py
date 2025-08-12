@@ -228,25 +228,29 @@ async def on_message(message):
             await message.channel.send(info["response"], suppress_embeds=True)
             return
 
-    # Priorisierte SCP-/SKP-Codes aus Feed & Google Sheet
-    for code in set(list(scp_links.keys()) + list(schedule.keys())):
+    # 1. Zuerst SCP-Links checken
+    for code in scp_links.keys():
         pattern = r'(?<![\w-])' + re.escape(code.upper()) + r'(?![\w-])'
         if re.search(pattern, msg_upper, re.IGNORECASE):
-            if code in scp_links:
-                data = scp_links[code]
-                response = f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
-                # Wenn zusätzlich Datum im Plan vorhanden, ergänzen
-                if code in schedule:
-                    response += f"\n📅 Veröffentlichungsdatum laut Plan: {schedule[code]}"
-                await message.channel.send(response)
-                return
-            elif code in schedule:
+            data = scp_links[code]
+            response = f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
+            if code in schedule:
+                response += f"\n📅 Veröffentlichungsdatum laut Plan: {schedule[code]}"
+            await message.channel.send(response)
+            return
+
+    # 2. Dann Codes prüfen, die nur im Plan sind (also nicht in scp_links)
+    for code in schedule.keys():
+        if code not in scp_links:
+            pattern = r'(?<![\w-])' + re.escape(code.upper()) + r'(?![\w-])'
+            if re.search(pattern, msg_upper, re.IGNORECASE):
                 await message.channel.send(
                     f"📅 **{code.upper()}** ist laut Plan für {schedule[code]} vorgesehen."
                 )
                 return
 
     await client.process_commands(message)
+
             
 async def post_latest_wordpress_post_once():
     print("[INFO] Starte einmaliges Posten des neuesten Wordpress-Beitrags ...")
