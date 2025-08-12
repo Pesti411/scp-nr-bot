@@ -247,6 +247,9 @@ async def on_message(message):
                 f"📅 **{code.upper()}** ist laut Plan für {date} vorgesehen."
             )
             return
+            
+async def post_latest_wordpress_post_once():
+    print("[INFO] Starte einmaliges Posten des neuesten Wordpress-Beitrags ...")
     
 @client.event
 async def on_connect():
@@ -256,6 +259,7 @@ async def on_connect():
     if not tasks_started:
         print("[INFO] Starte Initialdaten-Aktualisierung und Hintergrund-Tasks ...")
         update_feed()             # Falls sync; wenn async, await update_feed()
+        await update_feed()
         await fetch_schedule()
 
         client.loop.create_task(refresh_data_loop())
