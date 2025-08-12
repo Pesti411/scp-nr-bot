@@ -9,7 +9,7 @@ import csv
 import datetime
 import pytz
 
-# --- Konfiguration ---
+# Konfiguration
 TOKEN = os.getenv("DISCORD_TOKEN")
 FEED_URL = "https://q8reci.podcaster.de/scp-deutsch.rss"
 SCHEDULE_CSV_URL = "https://docs.google.com/spreadsheets/d/125iGFTWMVKImY_abjac1Lfal78o-dFzQalq6rT_YDxM/export?format=csv"
@@ -55,7 +55,7 @@ CUSTOM_TRIGGERS = {
     "peanut": f"🔎 Gefunden: **SCP-173: „Die Statue“**\n🎧 **[Hier anhören](https://nurkram.de/scp-173)**"
 }
 
-# --- Discord-Intents ---
+# Discord-Intents setzen
 intents = discord.Intents.default()
 intents.message_content = True
 
@@ -109,63 +109,6 @@ async def fetch_schedule():
             if code and date:
                 schedule[code] = date
 
-# --- Wordpress-Feed abrufen und formatieren ---
-async def fetch_wordpress_posts():
-    async with aiohttp.ClientSession() as session:
-        async with session.get(WORDPRESS_FEED_URL) as resp:
-            if resp.status != 200:
-                print(f"[ERROR] Wordpress-Feed konnte nicht geladen werden: Status {resp.status}")
-                return None
-            data = await resp.json()
-
-    if not data:
-        print("[TEST] Kein Wordpress-Post gefunden")
-        return None
-
-    newest = data[0]
-
-    title = newest.get("title", {}).get("rendered", "Kein Titel")
-    content = newest.get("content", {}).get("rendered", "")
-    link = newest.get("link", "")
-
-    return {
-        "title": title,
-        "content": content,
-        "link": link
-    }
-
-def format_wordpress_post(post):
-    # HTML-Tags entfernen, einfach und schnell
-    text = re.sub(r'<[^>]+>', '', post['content'])
-    text = text.strip().replace('\n', ' ')
-    # Optional: Text auf 300 Zeichen kürzen
-    if len(text) > 300:
-        text = text[:297] + "..."
-
-    msg = (
-        f":newspaper2: :speaker: **Neue Vertonung von Pesti | {post['title']}**\n"
-        f"> {text}\n"
-        f"{post['link']}"
-    )
-    return msg
-
-async def post_latest_wordpress_post_once():
-    await client.wait_until_ready()
-
-    post = await fetch_wordpress_posts()
-    if not post:
-        return
-
-    message = format_wordpress_post(post)
-
-    channel = discord.utils.get(client.get_all_channels(), name="test")
-    if channel:
-        await channel.send(f"[TEST] Neuester Wordpress-Beitrag:\n{message}")
-        print(f"[TEST] Neuester Wordpress-Beitrag gepostet: {post['title']}")
-    else:
-        print("[TEST] Channel 'test' nicht gefunden.")
-
-# Task-Wächter, nur einmal starten
 tasks_started = False
 
 async def refresh_data_loop():
@@ -173,7 +116,7 @@ async def refresh_data_loop():
         await asyncio.sleep(3600)  # stündlich aktualisieren
         update_feed()
         await fetch_schedule()
-
+        
 async def post_random_episode_loop():
     await client.wait_until_ready()
     tz = pytz.timezone("Europe/Berlin")
@@ -205,53 +148,123 @@ async def post_random_episode_loop():
 
         await asyncio.sleep(300)
 
+def clean_and_format_text(raw_html_content):
+    # HTML-Tags entfernen
+    text = re.sub(r'<[^>]+>', '', raw_html_content)
+    text = html.unescape(text)
+    
+    # SCP-Wikidot-Link und Folgetext entfernen
+    text = re.split(r'https?://scp-wiki-de\.wikidot\.com.*', text)[0].strip()
+    
+    # Autor und Übersetzer extrahieren
+    autor_match = re.search(r'Autor:\s*([^\n\r]+)', text, re.IGNORECASE)
+    übersetzer_match = re.search(r'Übersetzung:\s*([^\n\r]+)', text, re.IGNORECASE)
+    
+    autor = autor_match.group(1).strip() if autor_match else None
+    übersetzer = übersetzer_match.group(1).strip() if übersetzer_match else None
+    
+    # Autor-/Übersetzer-Zeilen entfernen
+    text = re.sub(r'Autor:\s*[^\n\r]+', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'Übersetzung:\s*[^\n\r]+', '', text, flags=re.IGNORECASE)
+    
+    # Text kürzen und Zeilenumbrüche ersetzen
+    text = " ".join(text.split())
+    max_len = 300
+    if len(text) > max_len:
+        text = text[:max_len-3] + "..."
+    
+    # Discord-Zitat-Formatierung
+    result = f"> {text}\n"
+    if autor:
+        result += f"> Autor: {autor}\n"
+    if übersetzer:
+        result += f"> Übersetzung: {übersetzer}\n"
+    return result
+
+def format_wordpress_post(post):
+    title = html.unescape(post['title'])
+    content = post['content']
+    link = post['link']
+
+    formatted_text = clean_and_format_text(content)
+
+    msg = (
+        f":newspaper2: :speaker: **Neue Vertonung von Pesti | {title}**\n"
+        f"{formatted_text}"
+        f"{link}"
+    )
+    return msg
+
 @client.event
-async def on_connect():
+async def on_ready():
+    print(f"[INFO] Eingeloggt als {client.user}")
+    update_feed()
+    await fetch_schedule()
     global tasks_started
-    print(f"[INFO] Bot verbunden mit Discord.")
-
     if not tasks_started:
-        print("[INFO] Starte Initialdaten-Aktualisierung und Hintergrund-Tasks ...")
-        update_feed()
-        await fetch_schedule()
-
         client.loop.create_task(refresh_data_loop())
         client.loop.create_task(post_random_episode_loop())
-        client.loop.create_task(post_latest_wordpress_post_once())  # Testpost beim Start
-
         tasks_started = True
 
 @client.event
 async def on_message(message):
-    if message.author.bot or message.channel.name in BLACKLIST_CHANNELS:
+    if message.author == client.user:
+        return
+    if isinstance(message.channel, discord.DMChannel):
+        return
+    if message.channel.name not in ["test"] or message.channel.name in BLACKLIST_CHANNELS:
+        return
+    
+    content_lower = message.content.lower()
+
+    # Erst auf SCP-Codes prüfen
+    found_code = None
+    for code in scp_links.keys():
+        if code in content_lower:
+            found_code = code
+            break
+
+    # Custom Trigger
+    if not found_code:
+        for key in CUSTOM_TRIGGERS.keys():
+            if key in content_lower:
+                await message.channel.send(CUSTOM_TRIGGERS[key])
+                return
+
+    # Spezielle Codes
+    if found_code in SPECIAL_CODES:
+        await message.channel.send(SPECIAL_CODES[found_code]["response"])
         return
 
-    lower_msg = message.content.lower()
-
-    for trigger, response in CUSTOM_TRIGGERS.items():
-        if trigger in lower_msg:
+    if found_code:
+        # Datum aus Schedule laden, wenn vorhanden
+        date = schedule.get(found_code, None)
+        post = scp_links.get(found_code)
+        if post:
+            title = post['title']
+            link = post['link']
+            response = f"🔎 Gefunden: **{title}**\n🎧 **[Hier anhören]({link})**"
+            if date:
+                response += f"\n📅 Veröffentlichungsdatum: {date}"
             await message.channel.send(response)
             return
 
-    msg = message.content.upper()
-
-    # Spezielle Codes
-    for special_code, info in SPECIAL_CODES.items():
-        pattern = r'(?<![\w-])' + re.escape(special_code) + r'(?![\w-])'
-        if re.search(pattern, msg, re.IGNORECASE):
-            await message.channel.send(info["response"], suppress_embeds=True)
-            return
-
-    # Normale SCP-/SKP-Erkennung (aus Feed)
-    for code, data in scp_links.items():
-        code_upper = code.upper()
-        pattern = r'(?<![\w-])' + re.escape(code_upper) + r'(?![\w-])'
-        if re.search(pattern, msg, re.IGNORECASE):
-            await message.channel.send(f"🎧 Neue Vertonung: **{data['title']}**\n🔗 **[Hier anhören]({data['link']})**", suppress_embeds=True)
-            return
-
-    # Nicht gefunden
-    # (Optional: keine Antwort)
-    # await message.channel.send("Kein Ergebnis gefunden.")
+    # Wordpress-Beitrag posten (nur als Beispiel, z.B. bei Befehl !wp)
+    if message.content.strip().lower() == "!wp":
+        # Beispiel: hole letzten Wordpress-Beitrag via API
+        import requests
+        r = requests.get(WORDPRESS_FEED_URL)
+        if r.status_code == 200:
+            posts = r.json()
+            if posts:
+                post = {
+                    "title": posts[0]['title']['rendered'],
+                    "content": posts[0]['content']['rendered'],
+                    "link": posts[0]['link']
+                }
+                msg = format_wordpress_post(post)
+                await message.channel.send(msg)
+        else:
+            await message.channel.send("Fehler beim Abrufen der Wordpress-Beiträge.")
 
 client.run(TOKEN)
