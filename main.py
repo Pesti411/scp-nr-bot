@@ -247,7 +247,7 @@ async def on_message(message):
                 f"📅 **{code.upper()}** ist laut Plan für {date} vorgesehen."
             )
             return
-
+    
 @client.event
 async def on_connect():
     global tasks_started
@@ -255,7 +255,7 @@ async def on_connect():
 
     if not tasks_started:
         print("[INFO] Starte Initialdaten-Aktualisierung und Hintergrund-Tasks ...")
-        update_feed()
+        update_feed()             # Falls sync; wenn async, await update_feed()
         await fetch_schedule()
 
         client.loop.create_task(refresh_data_loop())
@@ -264,6 +264,12 @@ async def on_connect():
 
         tasks_started = True
 
+@client.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    content_lower = message.content.lower()
 
     # Testpost mit Beispieltext (direkt posten ohne API)
     if content_lower == "!wp-test":
@@ -272,8 +278,7 @@ async def on_connect():
             "content": (
                 "SCP-2291 ist eine Box aus Wellpappe mit einer Kantenlänge von 15cm. "
                 "Das Wort „Spaß“ ist auf jeder Seite in riesen Großbuchstaben aufgedruckt. "
-                "Autor: arnbobo\nÜbersetzung: Dreamler1433\n"
-                "http://scp-wiki-de.wikidot.com/scp-2291 document.createElement('audio'); https://q8reci...."
+                "Autor: arnbobo\nÜbersetzung: Dreamler1433"
             ),
             "link": "https://nurkram.de/scp-2291"
         }
@@ -288,8 +293,6 @@ async def on_connect():
             found_code = code
             break
 
-    # Beispiel Special Codes etc. hier weggelassen - kannst du bei Bedarf wieder einbauen
-
     if found_code:
         date = schedule.get(found_code, None)
         post = scp_links.get(found_code)
@@ -300,6 +303,7 @@ async def on_connect():
             if date:
                 response += f"\n📅 Veröffentlichungsdatum: {date}"
             await message.channel.send(response)
-            return
+        return
 
 client.run(TOKEN)
+
