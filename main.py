@@ -13,6 +13,7 @@ import pytz
 TOKEN = os.getenv("DISCORD_TOKEN")
 FEED_URL = "https://q8reci.podcaster.de/scp-deutsch.rss"
 SCHEDULE_CSV_URL = "https://docs.google.com/spreadsheets/d/125iGFTWMVKImY_abjac1Lfal78o-dFzQalq6rT_YDxM/export?format=csv"
+WORDPRESS_FEED_URL = "https://nurkram.de/wp-json/wp/v2/posts?categories=703&per_page=5"
 BLACKLIST_CHANNELS = ["discord-vorschläge", "umfragen", "roleplay", "vertonungsplan", "news"]
 
 SPECIAL_CODES = {
@@ -63,6 +64,10 @@ client = discord.Client(intents=intents)
 scp_links = {}      # Nur Folgen mit SCP-/SKP-Code
 all_episodes = []   # Alle Folgen im Feed
 schedule = {}
+
+# --- Discord-Intents ---
+intents = discord.Intents.default()
+intents.message_content = True
 
 def parse_scp_code(title):
     if not (title.startswith("SCP-") or title.startswith("SKP-")):
@@ -207,5 +212,99 @@ async def on_message(message):
                 f"📅 **{code.upper()}** ist laut Plan für {date} vorgesehen."
             )
             break
+
+def parse_wordpress_post(entry):
+    """Extrahiert und formatiert den Wordpress-Beitrag nach deinem Schema.
+
+    Beispiel Input (entry.summary): 
+        SCP-2291: „Spaßkästchen“
+        SCP-2291 ist eine Box aus Wellpappe mit einer Kantenlänge von 15cm. Das Wort „Spaẞ“ ist auf jeder Seite in riesen Großbuchstaben aufgedruckt.
+
+        Autor: arnbobo
+
+        Übersetzung: Dreamler1433
+
+        http://scp-wiki-de.wikidot.com/scp-2291
+    """
+    text = html.unescape(entry.summary) if hasattr(entry, "summary") else ""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    
+    # Titel aus Feed-Entry (z.B. "SCP-2291: „Spaßkästchen“")
+    title = html.unescape(entry.title).strip()
+
+    # Standardfelder initialisieren
+    beschreibung = ""
+    autor = None
+    uebersetzung = None
+    url = entry.link.strip() if hasattr(entry, "link") else ""
+
+    # Suche Autor, Übersetzer, URL im Text, den Rest als Beschreibung
+    autor_pattern = re.compile(r"Autor:\s*(.+)", re.IGNORECASE)
+    uebersetzung_pattern = re.compile(r"Übersetzung:\s*(.+)", re.IGNORECASE)
+    url_pattern = re.compile(r"https?://\S+")
+
+    beschreibung_lines = []
+    for line in lines:
+        if autor_pattern.match(line):
+            autor = autor_pattern.match(line).group(1).strip()
+        elif uebersetzung_pattern.match(line):
+            uebersetzung = uebersetzung_pattern.match(line).group(1).strip()
+        elif url_pattern.match(line):
+            url = url_pattern.match(line).group(0).strip()
+        else:
+            # alle anderen Zeilen als Beschreibung, außer Titelzeile
+            if line != title:
+                beschreibung_lines.append(line)
+
+    beschreibung = " ".join(beschreibung_lines)
+
+    # Formatieren nach deinem Wunsch
+    msg = (
+        f":newspaper2: :speaker: **Neue Vertonung von Pesti | {title}**\n"
+        f"> {beschreibung}\n"
+        f"> Autor: {autor}\n"
+    )
+    if uebersetzung:
+        msg += f"> Übersetzer: {uebersetzung}\n"
+    msg += url
+
+    return msg
+
+
+async def post_latest_wordpress_post_once():
+    await client.wait_until_ready()
+
+    feed = feedparser.parse(WORDPRESS_FEED_URL)
+    if not feed.entries:
+        print("[TEST] Kein Eintrag im Wordpress-Feed gefunden.")
+        return
+
+    newest = feed.entries[0]
+    message = parse_wordpress_post(newest)
+    channel = discord.utils.get(client.get_all_channels(), name="test")
+    if channel:
+        await channel.send(f"[TEST] Neuester Wordpress-Beitrag:\n{message}")
+        print(f"[TEST] Neuester Wordpress-Beitrag gepostet: {newest.title}")
+    else:
+        print("[TEST] Channel 'test' nicht gefunden.")
+
+
+@client.event
+async def on_connect():
+    global tasks_started
+    print(f"[INFO] Bot verbunden mit Discord.")
+
+    if not tasks_started:
+        print("[INFO] Starte Initialdaten-Aktualisierung und Hintergrund-Tasks ...")
+        update_feed()
+        await fetch_schedule()
+
+        client.loop.create_task(refresh_data_loop())
+        client.loop.create_task(post_random_episode_loop())
+        client.loop.create_task(check_wordpress_feed_loop())  # falls du das hast
+
+        client.loop.create_task(post_latest_wordpress_post_once())  # Testpost
+
+        tasks_started = True
 
 client.run(TOKEN)
