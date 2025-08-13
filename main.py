@@ -307,7 +307,6 @@ async def on_connect():
         await fetch_schedule()
 
         client.loop.create_task(refresh_data_loop())
-        client.loop.create_task(post_random_episode_loop())
         client.loop.create_task(post_latest_wordpress_post_once())
 
         tasks_started = True
