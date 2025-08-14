@@ -12,7 +12,7 @@ import random
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 FEED_URL = "https://q8reci.podcaster.de/scp-deutsch.rss"
-SCHEDULE_CSV_URL = "https://docs.google.com/spreadsheets/d/125iGFTWMVKImY_abjac1Lfal78o-dFzQalq6rT_YDxM/edit?pli=1&gid=0#gid=0/export?format=csv"
+SCHEDULE_CSV_URL = "https://docs.google.com/spreadsheets/d/125iGFTWMVKImY_abjac1Lfal78o-dFzQalq6rT_YDxM/export?format=csv"
 WORDPRESS_FEED_URL = "https://nurkram.de/wp-json/wp/v2/posts?categories=703&per_page=5"
 BLACKLIST_CHANNELS = ["discord-vorschläge", "umfragen", "roleplay", "vertonungsplan", "news"]
 
@@ -77,38 +77,46 @@ def parse_scp_code(title):
 async def update_feed():
     global scp_links, all_episodes
     print("[INFO] Aktualisiere RSS-Feed ...")
-    feed = feedparser.parse(FEED_URL)
     scp_links = {}
     all_episodes = []
-    for entry in feed.entries:
-        if hasattr(entry, "title") and hasattr(entry, "link"):
-            code = parse_scp_code(entry.title)
-            if code:
-                scp_links[code] = entry.link
-            all_episodes.append({"title": entry.title, "link": entry.link})
-    print(f"[INFO] {len(all_episodes)} Episoden geladen, {len(scp_links)} SCP-Codes gefunden.")
+    try:
+        feed = feedparser.parse(FEED_URL)
+        for entry in feed.entries:
+            if hasattr(entry, "title") and hasattr(entry, "link"):
+                code = parse_scp_code(entry.title)
+                if code:
+                    scp_links[code] = entry.link
+                # Format Titel richtig
+                title_clean = entry.title.replace('"', "„").replace('"', "“")
+                all_episodes.append({"title": title_clean, "link": entry.link})
+        print(f"[INFO] {len(all_episodes)} Episoden geladen, {len(scp_links)} SCP-Codes gefunden.")
+    except Exception as e:
+        print(f"[ERROR] Fehler beim Aktualisieren des RSS-Feeds: {e}")
 
 async def fetch_schedule():
     global schedule
     print("[INFO] Lade Vertonungsplan ...")
     schedule = {}
-    async with aiohttp.ClientSession() as session:
-        async with session.get(SCHEDULE_CSV_URL) as resp:
-            if resp.status == 200:
-                text = await resp.text()
-                reader = csv.reader(text.splitlines())
-                for row in reader:
-                    if len(row) >= 4:
-                        schedule[row[0].upper()] = row[3]
-                print(f"[INFO] {len(schedule)} Einträge im Vertonungsplan geladen.")
-            else:
-                print("[WARN] Konnte CSV nicht laden.")
+    timeout = aiohttp.ClientTimeout(total=15)
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(SCHEDULE_CSV_URL) as resp:
+                if resp.status == 200:
+                    text = await resp.text()
+                    reader = csv.reader(text.splitlines())
+                    for row in reader:
+                        if len(row) >= 4:
+                            schedule[row[0].upper()] = row[3]
+                    print(f"[INFO] {len(schedule)} Einträge im Vertonungsplan geladen.")
+                else:
+                    print(f"[WARN] Konnte CSV nicht laden: HTTP {resp.status}")
+    except Exception as e:
+        print(f"[ERROR] Fehler beim Abrufen des Vertonungsplans: {e}")
 
 # ================= Textaufbereitung =================
 
 def clean_and_format_text(text):
     text = html.unescape(text)
-    text = re.sub(r"<.*?>", "", text)
     text = re.sub(r"\[.*?\]\(.*?\)", "", text)
     text = re.sub(r"\*.*?\*", "", text)
     text = text.strip()
@@ -121,7 +129,8 @@ def format_wordpress_post(post):
     content = post.get("content", {}).get("rendered", "")
     link = post.get("link", "#")
     clean_text = clean_and_format_text(content)
-    return f"**{title}**\n{clean_text}\n🎧 [Hier lesen]({link})"
+    title = title.replace('"', "„").replace('"', "“")
+    return f"**{title}**\n{clean_text}\n<{link}>"
 
 # ================= Background Tasks =================
 
@@ -129,84 +138,79 @@ async def refresh_data_loop():
     while True:
         await update_feed()
         await fetch_schedule()
-        await asyncio.sleep(3600)  # jede Stunde
+        await asyncio.sleep(3600)
 
 async def post_random_episode_loop():
     await client.wait_until_ready()
-    news_channel = next((c for c in client.get_all_channels() if c.name.lower() == "news"), None)
+    news_channel = discord.utils.get(client.get_all_channels(), lambda c: c.name.lower() == "news")
     while not client.is_closed():
         now = datetime.datetime.now(pytz.timezone("Europe/Berlin"))
         if 12 <= now.hour < 13:
             if all_episodes and news_channel:
                 episode = random.choice(all_episodes)
-                await news_channel.send(f"Heute zufällige Episode: **{episode['title']}**\n🎧 [Hier anhören]({episode['link']})")
-            await asyncio.sleep(3600)
-        else:
-            await asyncio.sleep(300)
+                await news_channel.send(f"Heute zufällige Episode:\n**{episode['title']}**\n🎧 <{episode['link']}>")
+        await asyncio.sleep(3600)
 
-# ================= Message Handling =================
+# ================= Discord Events =================
 
 @client.event
-async def on_message(message):
-    if message.author.bot or message.channel.name.lower() in BLACKLIST_CHANNELS:
-        return
-
-    msg_lower = message.content.lower()
-    msg_upper = message.content.upper()
-
-    # Custom Triggers
-    for trigger, reply in CUSTOM_TRIGGERS.items():
-        if trigger in msg_lower:
-            await message.channel.send(reply)
-            return
-
-    # Special Codes
-    for code, data in SPECIAL_CODES.items():
-        if re.search(rf"\b{re.escape(code)}\b", msg_upper):
-            await message.channel.send(data["response"])
-            return
-
-    # SCP Feed
-    for code, link in scp_links.items():
-        if re.search(rf"(?<![\w-]){re.escape(code)}(?![\w-])", msg_upper):
-            # Suche die Episode für den Code
-            episode = next((ep for ep in all_episodes if parse_scp_code(ep['title']) == code), None)
-            if episode:
-                title = episode['title']
-                # Unicode-Anführungszeichen beibehalten
-                response = f"🔎 Gefunden: **{title}**\n🎧 **[Hier anhören]({link})**"
-                await message.channel.send(response)
-            return
-
-    # Schedule
-    for code, date in schedule.items():
-        if re.search(rf"(?<![\w-]){re.escape(code)}(?![\w-])", msg_upper):
-            await message.channel.send(f"{code} erscheint am {date}")
-            return
-
-    # WordPress command
-    if msg_lower.startswith("!wp"):
-        async with aiohttp.ClientSession() as session:
-            async with session.get(WORDPRESS_FEED_URL) as resp:
-                if resp.status == 200:
-                    posts = await resp.json()
-                    if posts:
-                        await message.channel.send(format_wordpress_post(posts[0]))
-                else:
-                    await message.channel.send("Konnte WordPress-Feed nicht laden.")
-
-# ================= On Connect =================
-
-@client.event
-async def on_connect():
+async def on_ready():
     global tasks_started
-    print("[INFO] Bot verbunden")
+    print(f"[INFO] Bot eingeloggt als {client.user}")
     if not tasks_started:
         client.loop.create_task(refresh_data_loop())
         client.loop.create_task(post_random_episode_loop())
         tasks_started = True
-        print("[INFO] Hintergrund-Tasks gestartet")
 
-# ================= Start =================
+@client.event
+async def on_message(message):
+    if message.author.bot:
+        return
+    if message.channel.name in BLACKLIST_CHANNELS:
+        return
+
+    content_lower = message.content.lower()
+    
+    # Spezialfälle
+    for trigger, response in CUSTOM_TRIGGERS.items():
+        if trigger in content_lower:
+            await message.channel.send(response)
+            return
+
+    # SCP-001 Fix
+    if "scp-001" in content_lower:
+        await message.channel.send(SPECIAL_CODES["SCP-001"]["response"])
+        return
+
+    # RSS-Feed Lookup
+    match = re.match(r"^(scp-\d+)", content_lower)
+    if match:
+        code = match.group(1).upper()
+        if code in SPECIAL_CODES:
+            await message.channel.send(SPECIAL_CODES[code]["response"])
+        elif code in scp_links:
+            await message.channel.send(f"🔎 Gefunden: **{code}**\n🎧 **[Hier anhören]({scp_links[code]})**")
+        elif code in schedule:
+            await message.channel.send(f"⏳ **{code}** ist geplant für: {schedule[code]}")
+        else:
+            await message.channel.send(f"❌ Kein Eintrag für {code} gefunden.")
+
+    # WordPress Post
+    if message.content.startswith("!wp"):
+        timeout = aiohttp.ClientTimeout(total=15)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            try:
+                async with session.get(WORDPRESS_FEED_URL) as resp:
+                    if resp.status == 200:
+                        posts = await resp.json()
+                        if posts:
+                            post_text = format_wordpress_post(posts[0])
+                            await message.channel.send(post_text)
+                        else:
+                            await message.channel.send("Keine Beiträge gefunden.")
+                    else:
+                        await message.channel.send(f"Fehler beim Laden der WordPress-Posts: {resp.status}")
+            except Exception as e:
+                await message.channel.send(f"Fehler beim Abrufen der WordPress-Posts: {e}")
 
 client.run(TOKEN)
