@@ -48,9 +48,9 @@ SPECIAL_CODES = {
 }
 
 CUSTOM_TRIGGERS = {
-    "scarlet king": f"🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
-    "scharlach-rot": f"🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
-    "scharlach-roter": f"🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
+    "scarlet king": SPECIAL_CODES["SCP-001"]["response"].split("\n")[2],  # Tufto-Link
+    "scharlach-rot": SPECIAL_CODES["SCP-001"]["response"].split("\n")[2],
+    "scharlach-roter": SPECIAL_CODES["SCP-001"]["response"].split("\n")[2],
     "shy guy": f"🔎 Gefunden: **SCP-096: „Der Schüchterne Mann“**\n🎧 **[Hier anhören](https://nurkram.de/scp-096)**",
     "peanut": f"🔎 Gefunden: **SCP-173: „Die Statue“**\n🎧 **[Hier anhören](https://nurkram.de/scp-173)**"
 }
@@ -84,7 +84,7 @@ async def update_feed():
         if hasattr(entry, "title") and hasattr(entry, "link"):
             code = parse_scp_code(entry.title)
             if code:
-                scp_links[code] = entry.link
+                scp_links[code] = f"🔎 Gefunden: **{entry.title}**\n🎧 **[Hier anhören]({entry.link})**"
             all_episodes.append({"title": entry.title, "link": entry.link})
     print(f"[INFO] {len(all_episodes)} Episoden geladen, {len(scp_links)} SCP-Codes gefunden.")
 
@@ -108,8 +108,6 @@ async def fetch_schedule():
 
 def clean_and_format_text(text):
     text = html.unescape(text)
-    text = re.sub(r"\[.*?\]\(.*?\)", "", text)
-    text = re.sub(r"\*.*?\*", "", text)
     text = text.strip()
     if len(text) > 300:
         text = text[:300] + "..."
@@ -128,7 +126,7 @@ async def refresh_data_loop():
     while True:
         await update_feed()
         await fetch_schedule()
-        await asyncio.sleep(3600)  # jede Stunde
+        await asyncio.sleep(3600)
 
 async def post_random_episode_loop():
     await client.wait_until_ready()
@@ -138,8 +136,8 @@ async def post_random_episode_loop():
         if 12 <= now.hour < 13:
             if all_episodes and news_channel:
                 episode = random.choice(all_episodes)
-                await news_channel.send(f"Heute zufällige Episode: **{episode['title']}**\n<{episode['link']}>")
-            await asyncio.sleep(3600)  # nicht mehrmals pro Stunde
+                await news_channel.send(f"🎧 Tägliche Zufalls-Episode:\n **{episode['title']}**\n🎧 **[Hier anhören]({episode['link']})**")
+            await asyncio.sleep(3600)
         else:
             await asyncio.sleep(300)
 
@@ -160,15 +158,15 @@ async def on_message(message):
             return
 
     # Special Codes
-    for code, link in SPECIAL_CODES.items():
+    for code, data in SPECIAL_CODES.items():
         if re.search(rf"\b{re.escape(code)}\b", msg_upper):
-            await message.channel.send(f"{code}: {link}")
+            await message.channel.send(data["response"])
             return
 
     # SCP Feed
-    for code, link in scp_links.items():
+    for code, response in scp_links.items():
         if re.search(rf"(?<![\w-]){re.escape(code)}(?![\w-])", msg_upper):
-            await message.channel.send(f"{code}: {link}")
+            await message.channel.send(response)
             return
 
     # Schedule
