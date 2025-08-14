@@ -191,16 +191,18 @@ async def on_message(message):
         elif code in scp_links:
             await message.channel.send(f"🔎 Gefunden: **{code}**\n🎧 **[Hier anhören]({scp_links[code]})**")
         elif code in schedule:
-            await message.channel.send(f"⏳ **{code}** ist geplant für: {schedule[code]}")
-        else:
-            await message.channel.send(f"❌ Kein Eintrag für {code} gefunden.")
+            await message.channel.send(f"📅  **{code}** ist geplant für: {schedule[code]}")
 
     # WordPress Post
     if message.content.startswith("!wp"):
         timeout = aiohttp.ClientTimeout(total=15)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
+        headers = {
+            "User-Agent": "DiscordBot/1.0 (+https://example.com)",
+            "Accept": "application/json"
+        }
+        async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
             try:
-                async with session.get(WORDPRESS_FEED_URL) as resp:
+                async with session.get(WORDPRESS_FEED_URL, allow_redirects=True) as resp:
                     if resp.status == 200:
                         posts = await resp.json()
                         if posts:
