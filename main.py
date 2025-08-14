@@ -12,7 +12,7 @@ import random
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 FEED_URL = "https://q8reci.podcaster.de/scp-deutsch.rss"
-SCHEDULE_CSV_URL = "https://docs.google.com/spreadsheets/d/.../export?format=csv"
+SCHEDULE_CSV_URL = "https://docs.google.com/spreadsheets/d/125iGFTWMVKImY_abjac1Lfal78o-dFzQalq6rT_YDxM/edit?pli=1&gid=0#gid=0/export?format=csv"
 WORDPRESS_FEED_URL = "https://nurkram.de/wp-json/wp/v2/posts?categories=703&per_page=5"
 BLACKLIST_CHANNELS = ["discord-vorschläge", "umfragen", "roleplay", "vertonungsplan", "news"]
 
@@ -169,7 +169,13 @@ async def on_message(message):
     # SCP Feed
     for code, link in scp_links.items():
         if re.search(rf"(?<![\w-]){re.escape(code)}(?![\w-])", msg_upper):
-            await message.channel.send(f"🔎 Gefunden: **{code}**\n🎧 [Hier anhören]({link})")
+            # Suche die Episode für den Code
+            episode = next((ep for ep in all_episodes if parse_scp_code(ep['title']) == code), None)
+            if episode:
+                title = episode['title']
+                # Unicode-Anführungszeichen beibehalten
+                response = f"🔎 Gefunden: **{title}**\n🎧 **[Hier anhören]({link})**"
+                await message.channel.send(response)
             return
 
     # Schedule
