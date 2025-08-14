@@ -40,19 +40,19 @@ SPECIAL_CODES = {
         )
     },
     "SCP-6500": {
-        "response": f"🔎 Gefunden: **SCP-6500: „Unvermeidbar“**\n🎧 **[Hier anhören](https://nurkram.de/scp-6500)**"
+        "response": "🔎 Gefunden: **SCP-6500: „Unvermeidbar“**\n🎧 **[Hier anhören](https://nurkram.de/scp-6500)**"
     },
     "SCP-1730": {
-        "response": f"🔎 Gefunden: **SCP-1730: „Was ist mit Standort-13 passiert?“**\n🎧 **[Hier anhören](https://nurkram.de/scp-1730)**"
+        "response": "🔎 Gefunden: **SCP-1730: „Was ist mit Standort-13 passiert?“**\n🎧 **[Hier anhören](https://nurkram.de/scp-1730)**"
     }
 }
 
 CUSTOM_TRIGGERS = {
-    "scarlet king": SPECIAL_CODES["SCP-001"]["response"].split("\n")[2],  # Tufto-Link
-    "scharlach-rot": SPECIAL_CODES["SCP-001"]["response"].split("\n")[2],
-    "scharlach-roter": SPECIAL_CODES["SCP-001"]["response"].split("\n")[2],
-    "shy guy": f"🔎 Gefunden: **SCP-096: „Der Schüchterne Mann“**\n🎧 **[Hier anhören](https://nurkram.de/scp-096)**",
-    "peanut": f"🔎 Gefunden: **SCP-173: „Die Statue“**\n🎧 **[Hier anhören](https://nurkram.de/scp-173)**"
+    "scarlet king": "🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
+    "scharlach-rot": "🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
+    "scharlach-roter": "🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
+    "shy guy": "🔎 Gefunden: **SCP-096: „Der Schüchterne Mann“**\n🎧 **[Hier anhören](https://nurkram.de/scp-096)**",
+    "peanut": "🔎 Gefunden: **SCP-173: „Die Statue“**\n🎧 **[Hier anhören](https://nurkram.de/scp-173)**"
 }
 
 intents = discord.Intents.default()
@@ -84,7 +84,7 @@ async def update_feed():
         if hasattr(entry, "title") and hasattr(entry, "link"):
             code = parse_scp_code(entry.title)
             if code:
-                scp_links[code] = f"🔎 Gefunden: **{entry.title}**\n🎧 **[Hier anhören]({entry.link})**"
+                scp_links[code] = entry.link
             all_episodes.append({"title": entry.title, "link": entry.link})
     print(f"[INFO] {len(all_episodes)} Episoden geladen, {len(scp_links)} SCP-Codes gefunden.")
 
@@ -108,6 +108,9 @@ async def fetch_schedule():
 
 def clean_and_format_text(text):
     text = html.unescape(text)
+    text = re.sub(r"<.*?>", "", text)
+    text = re.sub(r"\[.*?\]\(.*?\)", "", text)
+    text = re.sub(r"\*.*?\*", "", text)
     text = text.strip()
     if len(text) > 300:
         text = text[:300] + "..."
@@ -118,7 +121,7 @@ def format_wordpress_post(post):
     content = post.get("content", {}).get("rendered", "")
     link = post.get("link", "#")
     clean_text = clean_and_format_text(content)
-    return f"**{title}**\n{clean_text}\n<{link}>"
+    return f"**{title}**\n{clean_text}\n🎧 [Hier lesen]({link})"
 
 # ================= Background Tasks =================
 
@@ -126,17 +129,17 @@ async def refresh_data_loop():
     while True:
         await update_feed()
         await fetch_schedule()
-        await asyncio.sleep(3600)
+        await asyncio.sleep(3600)  # jede Stunde
 
 async def post_random_episode_loop():
     await client.wait_until_ready()
-    news_channel = discord.utils.get(client.get_all_channels(), lambda c: c.name.lower() == "news")
+    news_channel = next((c for c in client.get_all_channels() if c.name.lower() == "news"), None)
     while not client.is_closed():
         now = datetime.datetime.now(pytz.timezone("Europe/Berlin"))
         if 12 <= now.hour < 13:
             if all_episodes and news_channel:
                 episode = random.choice(all_episodes)
-                await news_channel.send(f"🎧 Tägliche Zufalls-Episode:\n **{episode['title']}**\n🎧 **[Hier anhören]({episode['link']})**")
+                await news_channel.send(f"Heute zufällige Episode: **{episode['title']}**\n🎧 [Hier anhören]({episode['link']})")
             await asyncio.sleep(3600)
         else:
             await asyncio.sleep(300)
@@ -164,9 +167,9 @@ async def on_message(message):
             return
 
     # SCP Feed
-    for code, response in scp_links.items():
+    for code, link in scp_links.items():
         if re.search(rf"(?<![\w-]){re.escape(code)}(?![\w-])", msg_upper):
-            await message.channel.send(response)
+            await message.channel.send(f"🔎 Gefunden: **{code}**\n🎧 [Hier anhören]({link})")
             return
 
     # Schedule
@@ -175,7 +178,7 @@ async def on_message(message):
             await message.channel.send(f"{code} erscheint am {date}")
             return
 
-    # WordPress test command
+    # WordPress command
     if msg_lower.startswith("!wp"):
         async with aiohttp.ClientSession() as session:
             async with session.get(WORDPRESS_FEED_URL) as resp:
@@ -183,6 +186,8 @@ async def on_message(message):
                     posts = await resp.json()
                     if posts:
                         await message.channel.send(format_wordpress_post(posts[0]))
+                else:
+                    await message.channel.send("Konnte WordPress-Feed nicht laden.")
 
 # ================= On Connect =================
 
