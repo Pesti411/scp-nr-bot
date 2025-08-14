@@ -57,19 +57,23 @@ def update_feed():
                 "link": link
             }
 
-async def fetch_schedule():
+def fetch_schedule():
+    """Lädt das Google Sheet als CSV und füllt die globale schedule-Variable."""
     global schedule
     schedule.clear()
-    async with aiohttp.ClientSession() as session:
-        async with session.get(SCHEDULE_CSV_URL) as resp:
-            text = await resp.text()
-    reader = csv.reader(text.splitlines())
-    for row in reader:
-        if len(row) >= 4:
-            code = row[0].strip().lower()
-            date = row[3].strip()
-            if code and date:
-                schedule[code] = date
+    try:
+        r = requests.get(SCHEDULE_CSV_URL, timeout=10)
+        r.raise_for_status()
+        reader = csv.reader(r.text.splitlines())
+        for row in reader:
+            if len(row) >= 4:
+                code = row[0].strip().lower()
+                date = row[3].strip()
+                if code and date:
+                    schedule[code] = date
+        print(f"[INFO] Schedule erfolgreich geladen: {len(schedule)} Einträge")
+    except Exception as e:
+        print(f"[ERROR] Fehler beim Laden des Schedules: {e}")
 
 def clean_and_format_text(raw_html_content):
     # HTML-Tags entfernen
@@ -129,8 +133,8 @@ async def on_ready():
 async def refresh_data_loop():
     while True:
         update_feed()
-        await fetch_schedule()
-        await asyncio.sleep(3600)  # jede Stunde
+        fetch_schedule()  # keine await mehr
+        await asyncio.sleep(3600)
 
 async def post_random_episode_loop():
     await client.wait_until_ready()
