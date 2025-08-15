@@ -115,53 +115,6 @@ async def fetch_schedule():
                 print(f"[WARNUNG] CSV konnte nicht geladen werden, Status: {resp.status}")
 
 
-def clean_and_format_text(raw_html_content):
-    # HTML-Tags entfernen
-    text = re.sub(r'<[^>]+>', '', raw_html_content)
-    text = html.unescape(text)
-    
-    # SCP-Wikidot-Link und Folgetext entfernen
-    text = re.split(r'https?://scp-wiki-de\.wikidot\.com.*', text)[0].strip()
-    
-    # Autor und Übersetzer extrahieren
-    autor_match = re.search(r'Autor:\s*([^\n\r]+)', text, re.IGNORECASE)
-    übersetzer_match = re.search(r'Übersetzung:\s*([^\n\r]+)', text, re.IGNORECASE)
-    
-    autor = autor_match.group(1).strip() if autor_match else None
-    übersetzer = übersetzer_match.group(1).strip() if übersetzer_match else None
-    
-    # Autor-/Übersetzer-Zeilen entfernen
-    text = re.sub(r'Autor:\s*[^\n\r]+', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'Übersetzung:\s*[^\n\r]+', '', text, flags=re.IGNORECASE)
-    
-    # Text kürzen und Zeilenumbrüche ersetzen
-    text = " ".join(text.split())
-    max_len = 300
-    if len(text) > max_len:
-        text = text[:max_len-3] + "..."
-    
-    # Discord-Zitat-Formatierung
-    result = f"> {text}\n"
-    if autor:
-        result += f"> Autor: {autor}\n"
-    if übersetzer:
-        result += f"> Übersetzung: {übersetzer}\n"
-    return result
-
-def format_wordpress_post(post):
-    title = html.unescape(post['title'])
-    content = post['content']
-    link = post['link']
-
-    formatted_text = clean_and_format_text(content)
-
-    msg = (
-        f":newspaper2: :speaker: **Neue Vertonung von Pesti | {title}**\n"
-        f"{formatted_text}"
-        f"{link}"
-    )
-    return msg
-
 @client.event
 async def refresh_data_loop():
     while True:
@@ -249,21 +202,6 @@ async def on_message(message):
                 )
                 return
 
-    # Spezieller Test-Command (WP-Test)
-    if content_lower == "!wp-test":
-        dummy_post = {
-            "title": "SCP-2291: „Spaßkästchen“",
-            "content": (
-                "SCP-2291 ist eine Box aus Wellpappe mit einer Kantenlänge von 15cm. "
-                "Das Wort „Spaß“ ist auf jeder Seite in riesen Großbuchstaben aufgedruckt. "
-                "Autor: arnbobo\nÜbersetzung: Dreamler1433"
-            ),
-            "link": "https://nurkram.de/scp-2291"
-        }
-        msg = format_wordpress_post(dummy_post)
-        await message.channel.send(msg)
-        return
-
     # SCP-Code Erkennung & Reaktion (zusätzliche Prüfung)
     found_code = None
     for code in scp_links.keys():
@@ -303,7 +241,6 @@ async def on_ready():
         # Tasks nur einmal starten
         client.loop.create_task(refresh_data_loop())
         client.loop.create_task(post_random_episode_loop())
-        client.loop.create_task(post_latest_wordpress_post_once())
 
         tasks_started = True
     else:
