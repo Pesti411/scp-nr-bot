@@ -68,6 +68,51 @@ all_episodes = []
 schedule = {}
 posted_episodes = set()  # Damit keine Episode doppelt gepostet wird
 
+def format_episode_message(entry):
+    description = html.unescape(entry.get("description", ""))
+
+    # Discord-Link entfernen
+    description = re.sub(r"http[s]?://discord\.gg/[^\s]+", "", description, flags=re.IGNORECASE)
+
+    # Aufteilen in Teile: Titel, Beschreibung, Autor/Übersetzer
+    lines = description.split("/")
+
+    # Titel aus dem ersten Teil extrahieren
+    title_match = re.match(r'(SCP-\d+):\s*"(.+)"', lines[0].strip())
+    if title_match:
+        scp_code = title_match.group(1)
+        scp_title = title_match.group(2)
+    else:
+        scp_code = "Unbekannt"
+        scp_title = lines[0].strip()
+
+    # Textbeschreibung
+    text_desc = lines[1].strip() if len(lines) > 1 else ""
+
+    # Autor und Übersetzer
+    author = ""
+    translator = ""
+    if len(lines) > 2:
+        author_match = re.search(r'Autor:\s*([^/]+)', lines[2])
+        translator_match = re.search(r'Übersetzung:\s*([^/]+)', lines[2])
+        if author_match:
+            author = author_match.group(1).strip()
+        if translator_match:
+            translator = translator_match.group(1).strip()
+
+    # Formatierten Message-String bauen
+    msg = (
+        f":newspaper2: :speaker: **Neue Vertonung von {author} | {scp_code}: „{scp_title}“**\n"
+        f"> {text_desc}\n"
+    )
+    if translator:  # Nur hinzufügen, wenn Übersetzer existiert
+        msg += f"> Übersetzer: {translator}\n"
+
+    msg += entry.link  # Direktlink
+
+    return msg
+
+
 async def check_rss_feed_loop():
     await client.wait_until_ready()
     while not client.is_closed():
@@ -75,11 +120,10 @@ async def check_rss_feed_loop():
         for entry in feed.entries:
             if entry.link not in posted_episodes:
                 posted_episodes.add(entry.link)
-                title = entry.title
-                description = entry.get("description", "")
-                description = html.unescape(description)  # HTML-Zeichen umwandeln
-                msg = f"**Neue Episode:** {title}\n{description}\n🔗 {entry.link}"
-                
+
+                # Funktion aufrufen, um Discord-Nachricht zu erstellen
+                msg = format_episode_message(entry)
+
                 channel = client.get_channel(test)  # ID deines Discord-Channels
                 if channel:
                     await channel.send(msg)
