@@ -179,7 +179,7 @@ async def post_random_episode_loop():
         today = now.date()
 
         target_time = now.replace(hour=12, minute=0, second=0, microsecond=0)
-        latest_time = now.replace(hour=13, minute=0, second=0, microsecond=0)
+        latest_time = now.replace(hour=12, minute=10, second=0, microsecond=0)
 
         if last_posted_date != today and target_time <= now < latest_time:
             if not all_episodes:
@@ -284,7 +284,6 @@ async def on_message(message):
         return
 
     print("[DEBUG] Keine Codes gefunden.")
-    await client.process_commands(message)
 
 async def post_latest_wordpress_post_once():
     print("[INFO] Starte einmaliges Posten des neuesten Wordpress-Beitrags ...")
