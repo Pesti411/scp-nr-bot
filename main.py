@@ -8,22 +8,26 @@ import aiohttp
 import csv
 import datetime
 import pytz
+import json
 
-tasks_started = False
-
+# -----------------------------
 # Konfiguration
+# -----------------------------
 TOKEN = os.getenv("DISCORD_TOKEN")
 FEED_URL = "https://q8reci.podcaster.de/scp-deutsch.rss"
 SCHEDULE_CSV_URL = "https://docs.google.com/spreadsheets/d/125iGFTWMVKImY_abjac1Lfal78o-dFzQalq6rT_YDxM/export?format=csv"
 BLACKLIST_CHANNELS = ["discord-vorschläge", "umfragen", "roleplay", "vertonungsplan", "news"]
 DATA_FILE = "posted_episodes.json"
+CHANNEL_ID = 1238108459543822337  # Hier die echte Channel-ID einsetzen
 
+# -----------------------------
 # Lade bereits gepostete Episoden
+# -----------------------------
 if os.path.exists(DATA_FILE):
     with open(DATA_FILE, "r") as f:
-        posted_episodes = json.load(f)
+        posted_episodes = set(json.load(f))
 else:
-    posted_episodes = []
+    posted_episodes = set()
 
 SPECIAL_CODES = {
     "SCP-001": {
@@ -64,6 +68,11 @@ CUSTOM_TRIGGERS = {
     "peanut": f"🔎 Gefunden: **SCP-173: „Die Statue“**\n🎧 **[Hier anhören](https://nurkram.de/scp-173)**"
 }
 
+
+# -----------------------------
+# Discord Setup
+# -----------------------------
+
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
@@ -71,7 +80,6 @@ client = discord.Client(intents=intents)
 scp_links = {}
 all_episodes = []
 schedule = {}
-posted_episodes = set()
 
 def format_episode_message(entry):
     description = html.unescape(entry.get("description", ""))
@@ -224,7 +232,6 @@ async def on_message(message):
 async def on_ready():
     global tasks_started
     print(f"[INFO] Bot ist bereit. Eingeloggt als {client.user}.")
-    check_feed.start()
     if not tasks_started:
         tasks_started = True
         update_feed()
@@ -232,26 +239,5 @@ async def on_ready():
         client.loop.create_task(check_rss_feed_loop())
         client.loop.create_task(refresh_data_loop())
         client.loop.create_task(post_random_episode_loop())
-
-@tasks.loop(minutes=10)  # alle 10 Minuten prüfen
-async def check_feed():
-    feed = feedparser.parse(RSS_URL)
-    channel = client.get_channel(CHANNEL_ID)
-
-    new_episodes = []
-    for entry in feed.entries:
-        if entry.id not in posted_episodes:
-            new_episodes.append(entry)
-
-    # Sortieren, damit die ältesten zuerst gepostet werden
-    new_episodes.sort(key=lambda e: e.published_parsed)
-
-    for episode in new_episodes:
-        await channel.send(f"Neue Episode: {episode.title}\n{episode.link}")
-        posted_episodes.append(episode.id)
-
-    # Speicher die Liste der geposteten Episoden
-    with open(DATA_FILE, "w") as f:
-        json.dump(posted_episodes, f)
 
 client.run(TOKEN)
