@@ -183,6 +183,9 @@ async def post_random_episode_loop():
 async def on_ready():
     global tasks_started
     print(f"{client.user} ist online!")
+    # Direkt beim Start Daten laden
+    update_feed()
+    await fetch_schedule()
     if not tasks_started:
         tasks_started = True
         client.loop.create_task(check_rss_feed_loop())
