@@ -106,10 +106,12 @@ def format_episode_message(entry):
         f":newspaper2: :speaker: **Neue Vertonung von {author} | {scp_code}: „{scp_title}“**\n"
         f"> {text_desc}\n"
     )
-    if translator:  # Nur hinzufügen, wenn Übersetzer existiert
+    if author:  # Autor-Zeile zusätzlich
+        msg += f"> Autor: {author}\n"
+    if translator:  # Übersetzer-Zeile nur hinzufügen, wenn vorhanden
         msg += f"> Übersetzer: {translator}\n"
 
-    msg += entry.link  # Direktlink
+    msg += entry.get("link", "")  # Direktlink
 
     return msg
 
