@@ -11,6 +11,7 @@ import pytz
 import requests
 
 tasks_started = False
+initial_run = True
 
 # Konfiguration
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -114,20 +115,23 @@ def format_episode_message(entry):
 
 
 async def check_rss_feed_loop():
+    global initial_run
     await client.wait_until_ready()
     while not client.is_closed():
         feed = feedparser.parse(FEED_URL)
         for entry in feed.entries:
             if entry.link not in posted_episodes:
+                # Nur posten, wenn nicht der erste Run
+                if not initial_run:
+                    msg = format_episode_message(entry)
+                    channel = client.get_channel(1238108459543822337)  # ID deines Discord-Channels
+                    if channel:
+                        await channel.send(msg)
                 posted_episodes.add(entry.link)
-
-                # Funktion aufrufen, um Discord-Nachricht zu erstellen
-                msg = format_episode_message(entry)
-
-                channel = client.get_channel(1238108459543822337)  # ID deines Discord-Channels
-                if channel:
-                    await channel.send(msg)
-        await asyncio.sleep(600)  # 10 Minuten warten
+        # Nach der ersten Runde ist der Initial-Run vorbei
+        if initial_run:
+            initial_run = False
+        await asyncio.sleep(600)
 
 def parse_scp_code(title):
     if not (title.startswith("SCP-") or title.startswith("SKP-")):
