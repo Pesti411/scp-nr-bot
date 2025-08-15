@@ -8,7 +8,6 @@ import aiohttp
 import csv
 import datetime
 import pytz
-import requests
 
 tasks_started = False
 
@@ -16,7 +15,6 @@ tasks_started = False
 TOKEN = os.getenv("DISCORD_TOKEN")
 FEED_URL = "https://q8reci.podcaster.de/scp-deutsch.rss"
 SCHEDULE_CSV_URL = "https://docs.google.com/spreadsheets/d/125iGFTWMVKImY_abjac1Lfal78o-dFzQalq6rT_YDxM/export?format=csv"
-WORDPRESS_FEED_URL = "https://nurkram.de/wp-json/wp/v2/posts?categories=703&per_page=5"
 BLACKLIST_CHANNELS = ["discord-vorschläge", "umfragen", "roleplay", "vertonungsplan", "news"]
 
 SPECIAL_CODES = {
@@ -60,58 +58,32 @@ CUSTOM_TRIGGERS = {
 
 intents = discord.Intents.default()
 intents.message_content = True
-
 client = discord.Client(intents=intents)
 
 scp_links = {}
 all_episodes = []
 schedule = {}
-posted_episodes = set()  # Damit keine Episode doppelt gepostet wird
+posted_episodes = set()
 
 def format_episode_message(entry):
     description = html.unescape(entry.get("description", ""))
-
-    # Discord-Link entfernen
     description = re.sub(r"http[s]?://discord\.gg/[^\s]+", "", description, flags=re.IGNORECASE)
-
-    # Aufteilen in Teile: Titel, Beschreibung, Autor/Übersetzer
     lines = description.split("/")
-
-    # Titel aus dem ersten Teil extrahieren
     title_match = re.match(r'(SCP-\d+):\s*"(.+)"', lines[0].strip())
-    if title_match:
-        scp_code = title_match.group(1)
-        scp_title = title_match.group(2)
-    else:
-        scp_code = "Unbekannt"
-        scp_title = lines[0].strip()
-
-    # Textbeschreibung
+    scp_code = title_match.group(1) if title_match else "Unbekannt"
+    scp_title = title_match.group(2) if title_match else lines[0].strip()
     text_desc = lines[1].strip() if len(lines) > 1 else ""
-
-    # Autor und Übersetzer
     author = ""
     translator = ""
     if len(lines) > 2:
         author_match = re.search(r'Autor:\s*([^/]+)', lines[2])
         translator_match = re.search(r'Übersetzung:\s*([^/]+)', lines[2])
-        if author_match:
-            author = author_match.group(1).strip()
-        if translator_match:
-            translator = translator_match.group(1).strip()
-
-    # Formatierten Message-String bauen
-    msg = (
-        f":newspaper2: :speaker: **Neue Vertonung von {author} | {scp_code}: „{scp_title}“**\n"
-        f"> {text_desc}\n"
-    )
-    if translator:  # Nur hinzufügen, wenn Übersetzer existiert
-        msg += f"> Übersetzer: {translator}\n"
-
-    msg += entry.link  # Direktlink
-
+        if author_match: author = author_match.group(1).strip()
+        if translator_match: translator = translator_match.group(1).strip()
+    msg = f":newspaper2: :speaker: **Neue Vertonung von {author} | {scp_code}: „{scp_title}“**\n> {text_desc}\n"
+    if translator: msg += f"> Übersetzer: {translator}\n"
+    msg += entry.link
     return msg
-
 
 async def check_rss_feed_loop():
     await client.wait_until_ready()
@@ -120,14 +92,11 @@ async def check_rss_feed_loop():
         for entry in feed.entries:
             if entry.link not in posted_episodes:
                 posted_episodes.add(entry.link)
-
-                # Funktion aufrufen, um Discord-Nachricht zu erstellen
                 msg = format_episode_message(entry)
-
-                channel = client.get_channel(test)  # ID deines Discord-Channels
+                channel = client.get_channel(1238108459543822337)  # <--- Hier die Channel-ID einsetzen
                 if channel:
                     await channel.send(msg)
-        await asyncio.sleep(600)  # 10 Minuten warten
+        await asyncio.sleep(600)
 
 def parse_scp_code(title):
     if not (title.startswith("SCP-") or title.startswith("SKP-")):
@@ -141,23 +110,14 @@ def update_feed():
     global scp_links, all_episodes
     scp_links.clear()
     all_episodes.clear()
-
     feed = feedparser.parse(FEED_URL)
     for entry in feed.entries:
         title = html.unescape(entry.title.strip())
         link = entry.link.strip()
-
-        all_episodes.append({
-            "title": title,
-            "link": link
-        })
-
+        all_episodes.append({"title": title, "link": link})
         code = parse_scp_code(title)
         if code:
-            scp_links[code.lower()] = {
-                "title": title,
-                "link": link
-            }
+            scp_links[code.lower()] = {"title": title, "link": link}
 
 async def fetch_schedule():
     global schedule
@@ -176,76 +136,53 @@ async def fetch_schedule():
             else:
                 print(f"[WARNUNG] CSV konnte nicht geladen werden, Status: {resp.status}")
 
-
-@client.event
 async def refresh_data_loop():
     while True:
         update_feed()
         await fetch_schedule()
-        await asyncio.sleep(3600)  # jede Stunde
+        await asyncio.sleep(3600)
 
 async def post_random_episode_loop():
     await client.wait_until_ready()
     tz = pytz.timezone("Europe/Berlin")
     last_posted_date = None
-
     while True:
         now = datetime.datetime.now(tz)
         today = now.date()
-
         target_time = now.replace(hour=12, minute=0, second=0, microsecond=0)
         latest_time = now.replace(hour=12, minute=10, second=0, microsecond=0)
-
         if last_posted_date != today and target_time <= now < latest_time:
-            if not all_episodes:
-                print("[WARNUNG] Keine Episoden für Zufallsauswahl vorhanden!")
-            else:
+            if all_episodes:
                 import random
                 episode = random.choice(all_episodes)
                 channel = discord.utils.get(client.get_all_channels(), name="news")
-
                 if channel:
-                    await channel.send(
-                        f"🎧 Tägliche Zufalls-Episode:\n**{episode['title']}**\n🔗 **[Hier anhören]({episode['link']})**"
-                    )
-                    print(f"[INFO] Zufalls-Episode gepostet: {episode['title']}")
+                    await channel.send(f"🎧 Tägliche Zufalls-Episode:\n**{episode['title']}**\n🔗 **[Hier anhören]({episode['link']})**")
                     last_posted_date = today
-                else:
-                    print("[WARNUNG] Ziel-Channel 'news' nicht gefunden.")
-
         await asyncio.sleep(300)
 
 @client.event
 async def on_message(message):
     if message.author.bot or message.channel.name in BLACKLIST_CHANNELS:
         return
-
     content_raw = message.content
     content_lower = content_raw.lower()
     content_upper = content_raw.upper()
 
-    print(f"[DEBUG] Neue Nachricht: {content_raw}")
-
-    # Eigene Trigger
     for trigger, response in CUSTOM_TRIGGERS.items():
         if trigger in content_lower:
-            print(f"[DEBUG] Eigener Trigger '{trigger}' gefunden")
             await message.channel.send(response)
             return
 
-    # Spezialcodes
     for special_code, info in SPECIAL_CODES.items():
         pattern = r'(?<![\w-])' + re.escape(special_code) + r'(?![\w-])'
         if re.search(pattern, content_upper, re.IGNORECASE):
-            print(f"[DEBUG] Spezialcode '{special_code}' gefunden")
             await message.channel.send(info["response"], suppress_embeds=True)
             return
 
-    # 1. SCP-Links zuerst prüfen
     for code in scp_links.keys():
         pattern = r'(?<![\w-])' + re.escape(code.upper()) + r'(?![\w-])'
         if re.search(pattern, content_upper, re.IGNORECASE):
-            print(f"[DEBUG] Code '{code}' im Feed gefunden")
             data = scp_links[code]
             response = f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
             if code in schedule:
@@ -253,79 +190,38 @@ async def on_message(message):
             await message.channel.send(response)
             return
 
-    # 2. Codes nur im Plan prüfen
     for code in schedule.keys():
         if code not in scp_links:
             pattern = r'(?<![\w-])' + re.escape(code.upper()) + r'(?![\w-])'
             if re.search(pattern, content_upper, re.IGNORECASE):
-                print(f"[DEBUG] Code '{code}' nur im Plan gefunden")
-                await message.channel.send(
-                    f"📅 **{code.upper()}** ist laut Plan für {schedule[code]} vorgesehen."
-                )
+                await message.channel.send(f"📅 **{code.upper()}** ist laut Plan für {schedule[code]} vorgesehen.")
                 return
 
-    # SCP-Code Erkennung & Reaktion (zusätzliche Prüfung)
-    found_code = None
-    for code in scp_links.keys():
-        if code in content_lower:
-            found_code = code
-            break
-
-    if found_code:
-        date = schedule.get(found_code, None)
-        post = scp_links.get(found_code)
-        if post:
-            title = post['title']
-            link = post['link']
-            response = f"🔎 Gefunden: **{title}**\n🎧 **[Hier anhören]({link})**"
-            if date:
-                response += f"\n📅 Veröffentlichungsdatum: {date}"
-            await message.channel.send(response)
-        return
-
-    print("[DEBUG] Keine Codes gefunden.")
-
-    # Test-Command: !latest_episode
     if content_lower.startswith("!latest_episode"):
         if not all_episodes:
             await message.channel.send("⚠️ Keine Episoden gefunden.")
             return
-
         latest_entry = all_episodes[0]
-        # Feedparser nochmal parsen, um die Beschreibung zu holen
         feed = feedparser.parse(FEED_URL)
         description = ""
         for entry in feed.entries:
             if entry.link == latest_entry["link"]:
                 description = html.unescape(entry.get("description", ""))
                 break
-
         msg = f"**Neueste Episode:** {latest_entry['title']}\n{description}\n🔗 {latest_entry['link']}"
         await message.channel.send(msg)
         return
 
-async def post_latest_wordpress_post_once():
-    print("[INFO] Starte einmaliges Posten des neuesten Wordpress-Beitrags ...")
-    
 @client.event
 async def on_ready():
     global tasks_started
     print(f"[INFO] Bot ist bereit. Eingeloggt als {client.user}.")
-
     if not tasks_started:
-        print("[INFO] Starte Hintergrund-Tasks ...")
-
-        # Initialdaten laden
-        update_feed()  # Falls async -> await update_feed()
+        tasks_started = True
+        update_feed()
         await fetch_schedule()
-
-        # Tasks nur einmal starten
+        client.loop.create_task(check_rss_feed_loop())
         client.loop.create_task(refresh_data_loop())
         client.loop.create_task(post_random_episode_loop())
-        client.loop.create_task(check_rss_feed_loop())
-
-        tasks_started = True
-    else:
-        print("[INFO] Hintergrund-Tasks laufen bereits, kein erneuter Start.")
 
 client.run(TOKEN)
