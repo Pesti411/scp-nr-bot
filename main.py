@@ -163,13 +163,6 @@ def format_wordpress_post(post):
     return msg
 
 @client.event
-async def on_ready():
-    print(f"[INFO] Eingeloggt als {client.user}")
-    update_feed()
-    await fetch_schedule()
-    client.loop.create_task(refresh_data_loop())
-    client.loop.create_task(post_random_episode_loop())
-
 async def refresh_data_loop():
     while True:
         update_feed()
@@ -297,19 +290,24 @@ async def post_latest_wordpress_post_once():
     print("[INFO] Starte einmaliges Posten des neuesten Wordpress-Beitrags ...")
     
 @client.event
-async def on_connect():
+async def on_ready():
     global tasks_started
-    print(f"[INFO] Bot verbunden mit Discord.")
+    print(f"[INFO] Bot ist bereit. Eingeloggt als {client.user}.")
 
     if not tasks_started:
-        print("[INFO] Starte Initialdaten-Aktualisierung und Hintergrund-Tasks ...")
-        update_feed()             
+        print("[INFO] Starte Hintergrund-Tasks ...")
+
+        # Initialdaten laden
+        update_feed()  # Falls async -> await update_feed()
         await fetch_schedule()
 
+        # Tasks nur einmal starten
         client.loop.create_task(refresh_data_loop())
         client.loop.create_task(post_random_episode_loop())
         client.loop.create_task(post_latest_wordpress_post_once())
 
         tasks_started = True
+    else:
+        print("[INFO] Hintergrund-Tasks laufen bereits, kein erneuter Start.")
 
 client.run(TOKEN)
