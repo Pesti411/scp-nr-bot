@@ -70,51 +70,57 @@ schedule = {}
 posted_episodes = set()  # Damit keine Episode doppelt gepostet wird
 
 def format_episode_message(entry):
-    description = html.unescape(entry.get("description", ""))
+    # Titel direkt aus dem Feed
+    title = html.unescape(entry.get("title", "")).strip()
 
-    # Discord-Link entfernen
-    description = re.sub(r"http[s]?://discord\.gg/[^\s]+", "", description, flags=re.IGNORECASE)
+    # Beschreibung bereinigen
+    desc_raw = html.unescape(entry.get("description", "") or "")
+    # Discord-Invite-Links entfernen
+    desc = re.sub(r'https?://discord\.gg/\S+', '', desc_raw, flags=re.IGNORECASE)
+    # SCP-Wiki-Link entfernen (falls vorhanden)
+    desc = re.sub(r'https?://scp-wiki-de\.wikidot\.com\S*', '', desc, flags=re.IGNORECASE)
 
-    # Aufteilen in Teile: Titel, Beschreibung, Autor/Übersetzer
-    lines = description.split("/")
+    # Autor & Übersetzer extrahieren
+    author = None
+    m_auth = re.search(r'Autor:\s*([^/|\n\r]+)', desc, flags=re.IGNORECASE)
+    if m_auth:
+        author = m_auth.group(1).strip()
 
-    # Titel aus dem ersten Teil extrahieren
-    title_match = re.match(r'(SCP-\d+):\s*"(.+)"', lines[0].strip())
-    if title_match:
-        scp_code = title_match.group(1)
-        scp_title = title_match.group(2)
-    else:
-        scp_code = "Unbekannt"
-        scp_title = lines[0].strip()
+    translator = None
+    m_trans = re.search(r'Übersetz(?:ung|er):\s*([^/|\n\r]+)', desc, flags=re.IGNORECASE)
+    if m_trans:
+        translator = m_trans.group(1).strip()
 
-    # Textbeschreibung
-    text_desc = lines[1].strip() if len(lines) > 1 else ""
+    # Autor/Übersetzer aus der Beschreibung entfernen
+    desc = re.sub(r'Autor:\s*[^/|\n\r]+', '', desc, flags=re.IGNORECASE)
+    desc = re.sub(r'Übersetz(?:ung|er):\s*[^/|\n\r]+', '', desc, flags=re.IGNORECASE)
 
-    # Autor und Übersetzer
-    author = ""
-    translator = ""
-    if len(lines) > 2:
-        author_match = re.search(r'Autor:\s*([^/]+)', lines[2])
-        translator_match = re.search(r'Übersetzung:\s*([^/]+)', lines[2])
-        if author_match:
-            author = author_match.group(1).strip()
-        if translator_match:
-            translator = translator_match.group(1).strip()
+    # Beschreibungstext wählen (erstes sinnvolles Fragment ohne Titel-/Meta-Geraffel)
+    parts = re.split(r'[\/\n\r]+', desc)
+    text_desc = ''
+    for part in parts:
+        p = part.strip()
+        if not p:
+            continue
+        # Zeilen wie 'SCP-XXXX: "Titel"' überspringen
+        if re.match(r'^\s*SCP-\w+:\s*["“].+["”]\s*$', p):
+            continue
+        text_desc = p
+        break
+    if not text_desc:
+        text_desc = " ".join(desc.split()).strip()
 
-    # Formatierten Message-String bauen
-    msg = (
-        f":newspaper2: :speaker: **Neue Vertonung von {author} | {scp_code}: „{scp_title}“**\n"
-        f"> {text_desc}\n"
-    )
-    if author:  # Autor-Zeile zusätzlich
+    # Nachricht bauen
+    msg = f":newspaper2: :speaker: **Neue Vertonung von Pesti | {title}**\n"
+    if text_desc:
+        msg += f"> {text_desc}\n"
+    if author:
         msg += f"> Autor: {author}\n"
-    if translator:  # Übersetzer-Zeile nur hinzufügen, wenn vorhanden
+    if translator:
         msg += f"> Übersetzer: {translator}\n"
-
-    msg += entry.get("link", "")  # Direktlink
+    msg += entry.get("link", "").strip()
 
     return msg
-
 
 async def check_rss_feed_loop():
     global initial_run
