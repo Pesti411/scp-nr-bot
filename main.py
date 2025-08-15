@@ -66,6 +66,24 @@ client = discord.Client(intents=intents)
 scp_links = {}
 all_episodes = []
 schedule = {}
+posted_episodes = set()  # Damit keine Episode doppelt gepostet wird
+
+async def check_rss_feed_loop():
+    await client.wait_until_ready()
+    while not client.is_closed():
+        feed = feedparser.parse(FEED_URL)
+        for entry in feed.entries:
+            if entry.link not in posted_episodes:
+                posted_episodes.add(entry.link)
+                title = entry.title
+                description = entry.get("description", "")
+                description = html.unescape(description)  # HTML-Zeichen umwandeln
+                msg = f"**Neue Episode:** {title}\n{description}\n🔗 {entry.link}"
+                
+                channel = client.get_channel(test)  # ID deines Discord-Channels
+                if channel:
+                    await channel.send(msg)
+        await asyncio.sleep(600)  # 10 Minuten warten
 
 def parse_scp_code(title):
     if not (title.startswith("SCP-") or title.startswith("SKP-")):
@@ -223,6 +241,25 @@ async def on_message(message):
 
     print("[DEBUG] Keine Codes gefunden.")
 
+    # Test-Command: !latest_episode
+    if content_lower.startswith("!latest_episode"):
+        if not all_episodes:
+            await message.channel.send("⚠️ Keine Episoden gefunden.")
+            return
+
+        latest_entry = all_episodes[0]
+        # Feedparser nochmal parsen, um die Beschreibung zu holen
+        feed = feedparser.parse(FEED_URL)
+        description = ""
+        for entry in feed.entries:
+            if entry.link == latest_entry["link"]:
+                description = html.unescape(entry.get("description", ""))
+                break
+
+        msg = f"**Neueste Episode:** {latest_entry['title']}\n{description}\n🔗 {latest_entry['link']}"
+        await message.channel.send(msg)
+        return
+
 async def post_latest_wordpress_post_once():
     print("[INFO] Starte einmaliges Posten des neuesten Wordpress-Beitrags ...")
     
@@ -241,6 +278,7 @@ async def on_ready():
         # Tasks nur einmal starten
         client.loop.create_task(refresh_data_loop())
         client.loop.create_task(post_random_episode_loop())
+        client.loop.create_task(check_rss_feed_loop())
 
         tasks_started = True
     else:
