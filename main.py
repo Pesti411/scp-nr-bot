@@ -124,7 +124,7 @@ async def check_rss_feed_loop():
                 # Funktion aufrufen, um Discord-Nachricht zu erstellen
                 msg = format_episode_message(entry)
 
-                channel = client.get_channel(test)  # ID deines Discord-Channels
+                channel = client.get_channel(1238108459543822337)  # ID deines Discord-Channels
                 if channel:
                     await channel.send(msg)
         await asyncio.sleep(600)  # 10 Minuten warten
