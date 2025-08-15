@@ -9,6 +9,7 @@ import csv
 import datetime
 import pytz
 import json
+import random
 
 # -----------------------------
 # Konfiguration
@@ -29,11 +30,14 @@ if os.path.exists(DATA_FILE):
 else:
     posted_episodes = set()
 
+# -----------------------------
+# Special Codes & Custom Triggers
+# -----------------------------
 SPECIAL_CODES = {
     "SCP-001": {
         "response": (
             "**SCP-001 ist besonders – es gibt mehrere Versionen!**\n"
-            "🔗 Übersicht aller verfügbarer Vertonungen:\n"
+            "🔗 Übersicht aller verfügbaren Vertonungen:\n"
             "- [SCP-001 – S. D. Lockes Vorschlag: „Wenn der Tag anbricht“](https://nurkram.de/scp-001-s-d-locke)\n"
             "- [SCP-001: CODE NAME: „Tufto – Der Scarlet King“](https://nurkram.de/scp-001-tufto)\n"
             "- [SCP-001: CODE NAME: „Tanhony II – Heult der Schwarze Mond?“](https://nurkram.de/scp-001-tanhony-ii)\n"
@@ -53,26 +57,24 @@ SPECIAL_CODES = {
         )
     },
     "SCP-6500": {
-        "response": f"🔎 Gefunden: **SCP-6500: „Unvermeidbar“**\n🎧 **[Hier anhören](https://nurkram.de/scp-6500)**"
+        "response": "🔎 Gefunden: **SCP-6500: „Unvermeidbar“**\n🎧 **[Hier anhören](https://nurkram.de/scp-6500)**"
     },
     "SCP-1730": {
-        "response": f"🔎 Gefunden: **SCP-1730: „Was ist mit Standort-13 passiert?“**\n🎧 **[Hier anhören](https://nurkram.de/scp-1730)**"
+        "response": "🔎 Gefunden: **SCP-1730: „Was ist mit Standort-13 passiert?“**\n🎧 **[Hier anhören](https://nurkram.de/scp-1730)**"
     }
 }
 
 CUSTOM_TRIGGERS = {
-    "scarlet king": f"🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
-    "scharlach-rot": f"🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
-    "scharlach-roter": f"🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
-    "shy guy": f"🔎 Gefunden: **SCP-096: „Der Schüchterne Mann“**\n🎧 **[Hier anhören](https://nurkram.de/scp-096)**",
-    "peanut": f"🔎 Gefunden: **SCP-173: „Die Statue“**\n🎧 **[Hier anhören](https://nurkram.de/scp-173)**"
+    "scarlet king": "🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
+    "scharlach-rot": "🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
+    "scharlach-roter": "🔎 Gefunden: **SCP-001: CODE NAME: „Tufto – Der Scarlet King“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-tufto)**",
+    "shy guy": "🔎 Gefunden: **SCP-096: „Der Schüchterne Mann“**\n🎧 **[Hier anhören](https://nurkram.de/scp-096)**",
+    "peanut": "🔎 Gefunden: **SCP-173: „Die Statue“**\n🎧 **[Hier anhören](https://nurkram.de/scp-173)**"
 }
-
 
 # -----------------------------
 # Discord Setup
 # -----------------------------
-
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
@@ -80,7 +82,11 @@ client = discord.Client(intents=intents)
 scp_links = {}
 all_episodes = []
 schedule = {}
+tasks_started = False
 
+# -----------------------------
+# Helferfunktionen
+# -----------------------------
 def format_episode_message(entry):
     description = html.unescape(entry.get("description", ""))
     description = re.sub(r"http[s]?://discord\.gg/[^\s]+", "", description, flags=re.IGNORECASE)
@@ -100,19 +106,6 @@ def format_episode_message(entry):
     if translator: msg += f"> Übersetzer: {translator}\n"
     msg += entry.link
     return msg
-
-async def check_rss_feed_loop():
-    await client.wait_until_ready()
-    while not client.is_closed():
-        feed = feedparser.parse(FEED_URL)
-        for entry in feed.entries:
-            if entry.link not in posted_episodes:
-                posted_episodes.add(entry.link)
-                msg = format_episode_message(entry)
-                channel = client.get_channel(1238108459543822337)  # <--- Hier die Channel-ID einsetzen
-                if channel:
-                    await channel.send(msg)
-        await asyncio.sleep(600)
 
 def parse_scp_code(title):
     if not (title.startswith("SCP-") or title.startswith("SKP-")):
@@ -152,92 +145,90 @@ async def fetch_schedule():
             else:
                 print(f"[WARNUNG] CSV konnte nicht geladen werden, Status: {resp.status}")
 
-async def refresh_data_loop():
-    while True:
+# -----------------------------
+# Loops
+# -----------------------------
+async def check_rss_feed_loop():
+    await client.wait_until_ready()
+    while not client.is_closed():
         update_feed()
+        await asyncio.sleep(600)  # alle 10 Minuten
+
+async def refresh_data_loop():
+    await client.wait_until_ready()
+    while not client.is_closed():
         await fetch_schedule()
-        await asyncio.sleep(3600)
+        await asyncio.sleep(3600)  # alle 60 Minuten
 
 async def post_random_episode_loop():
     await client.wait_until_ready()
-    tz = pytz.timezone("Europe/Berlin")
-    last_posted_date = None
-    while True:
-        now = datetime.datetime.now(tz)
-        today = now.date()
-        target_time = now.replace(hour=12, minute=0, second=0, microsecond=0)
-        latest_time = now.replace(hour=12, minute=10, second=0, microsecond=0)
-        if last_posted_date != today and target_time <= now < latest_time:
-            if all_episodes:
-                import random
-                episode = random.choice(all_episodes)
-                channel = discord.utils.get(client.get_all_channels(), name="news")
-                if channel:
-                    await channel.send(f"🎧 Tägliche Zufalls-Episode:\n**{episode['title']}**\n🔗 **[Hier anhören]({episode['link']})**")
-                    last_posted_date = today
-        await asyncio.sleep(300)
+    channel = client.get_channel(CHANNEL_ID)
+    if not channel:
+        print(f"[WARNUNG] Channel mit ID {CHANNEL_ID} nicht gefunden")
+        return
+    while not client.is_closed():
+        await asyncio.sleep(3600)  # 1x pro Stunde prüfen
+        candidates = [e for e in all_episodes if e["link"] not in posted_episodes]
+        if candidates:
+            episode = random.choice(candidates)
+            await channel.send(format_episode_message(episode))
+            posted_episodes.add(episode["link"])
+            with open(DATA_FILE, "w") as f:
+                json.dump(list(posted_episodes), f)
+
+# -----------------------------
+# Discord Events
+# -----------------------------
+@client.event
+async def on_ready():
+    global tasks_started
+    print(f"{client.user} ist online!")
+    if not tasks_started:
+        tasks_started = True
+        client.loop.create_task(check_rss_feed_loop())
+        client.loop.create_task(refresh_data_loop())
+        client.loop.create_task(post_random_episode_loop())
 
 @client.event
 async def on_message(message):
-    if message.author.bot or message.channel.name in BLACKLIST_CHANNELS:
+    if message.author.bot:
         return
-    content_raw = message.content
+    if message.channel.name.lower() in [c.lower() for c in BLACKLIST_CHANNELS]:
+        return
+    content_raw = message.content.strip()
     content_lower = content_raw.lower()
-    content_upper = content_raw.upper()
 
+    # Special Codes
+    for code, info in SPECIAL_CODES.items():
+        if re.search(rf"\b{re.escape(code)}\b", content_raw, re.IGNORECASE):
+            await message.channel.send(info["response"])
+            return
+
+    # Custom Triggers
     for trigger, response in CUSTOM_TRIGGERS.items():
         if trigger in content_lower:
             await message.channel.send(response)
             return
 
-    for special_code, info in SPECIAL_CODES.items():
-        pattern = r'(?<![\w-])' + re.escape(special_code) + r'(?![\w-])'
-        if re.search(pattern, content_upper, re.IGNORECASE):
-            await message.channel.send(info["response"], suppress_embeds=True)
-            return
-
-    for code in scp_links.keys():
-        pattern = r'(?<![\w-])' + re.escape(code.upper()) + r'(?![\w-])'
-        if re.search(pattern, content_upper, re.IGNORECASE):
-            data = scp_links[code]
-            response = f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
-            if code in schedule:
-                response += f"\n📅 Veröffentlichungsdatum laut Plan: {schedule[code]}"
+    # Dynamische SCP Links
+    for scp_code, info in scp_links.items():
+        if scp_code in content_lower:
+            response = f"🔗 **Vertonung:** {info['title']}\n{info['link']}"
+            date = schedule.get(scp_code)
+            if date:
+                response += f"\n📅 **Veröffentlichungsdatum:** {date}"
             await message.channel.send(response)
             return
 
-    for code in schedule.keys():
-        if code not in scp_links:
-            pattern = r'(?<![\w-])' + re.escape(code.upper()) + r'(?![\w-])'
-            if re.search(pattern, content_upper, re.IGNORECASE):
-                await message.channel.send(f"📅 **{code.upper()}** ist laut Plan für {schedule[code]} vorgesehen.")
-                return
-
+    # Befehl !latest_episode
     if content_lower.startswith("!latest_episode"):
-        if not all_episodes:
-            await message.channel.send("⚠️ Keine Episoden gefunden.")
-            return
-        latest_entry = all_episodes[0]
-        feed = feedparser.parse(FEED_URL)
-        description = ""
-        for entry in feed.entries:
-            if entry.link == latest_entry["link"]:
-                description = html.unescape(entry.get("description", ""))
-                break
-        msg = f"**Neueste Episode:** {latest_entry['title']}\n{description}\n🔗 {latest_entry['link']}"
-        await message.channel.send(msg)
-        return
+        if all_episodes:
+            episode = all_episodes[0]
+            await message.channel.send(format_episode_message(episode))
+        else:
+            await message.channel.send("Keine Episoden gefunden.")
 
-@client.event
-async def on_ready():
-    global tasks_started
-    print(f"[INFO] Bot ist bereit. Eingeloggt als {client.user}.")
-    if not tasks_started:
-        tasks_started = True
-        update_feed()
-        await fetch_schedule()
-        client.loop.create_task(check_rss_feed_loop())
-        client.loop.create_task(refresh_data_loop())
-        client.loop.create_task(post_random_episode_loop())
-
+# -----------------------------
+# Bot starten
+# -----------------------------
 client.run(TOKEN)
