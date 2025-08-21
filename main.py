@@ -132,7 +132,7 @@ async def check_rss_feed_loop():
                 # Nur posten, wenn nicht der erste Run
                 if not initial_run:
                     msg = format_episode_message(entry)
-                    channel = client.get_channel(1238108459543822337)  # ID deines Discord-Channels
+                    channel = client.get_channel(1230551357635825787)  # ID Kanal test: 1238108459543822337 / ID Kanal news: 1230551357635825787
                     if channel:
                         await channel.send(msg)
                 posted_episodes.add(entry.link)
