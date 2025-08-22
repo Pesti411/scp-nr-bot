@@ -70,76 +70,108 @@ schedule = {}
 posted_episodes = set()  # Damit keine Episode doppelt gepostet wird
 
 def format_episode_message(entry):
+    description = html.unescape(entry.get("description", ""))
+
+    # Discord-Link entfernen
+    description = re.sub(r"http[s]?://discord\.gg/[^\s]+", "", description, flags=re.IGNORECASE)
+
+    # Aufteilen in Teile: Beschreibung / Autor / Übersetzer
+    lines = description.split("/")
+
+    # Beschreibungstext
+    text_desc = lines[0].strip() if len(lines) > 0 else ""
+
+    # Autor und Übersetzer
+    author = ""
+    translator = ""
+    if len(lines) > 1:
+        author_match = re.search(r'Autor:\s*([^/]+)', description)
+        translator_match = re.search(r'Übersetzung:\s*([^/]+)', description)
+        if author_match:
+            author = author_match.group(1).strip()
+        if translator_match:
+            translator = translator_match.group(1).strip()
+
     # Titel direkt aus dem Feed
-    title = html.unescape(entry.get("title", "")).strip()
+    title = entry.get("title", "Unbekannt")
 
-    # Beschreibung bereinigen
-    desc_raw = html.unescape(entry.get("description", "") or "")
-    # Discord-Invite-Links entfernen
-    desc = re.sub(r'https?://discord\.gg/\S+', '', desc_raw, flags=re.IGNORECASE)
-    # SCP-Wiki-Link entfernen (falls vorhanden)
-    desc = re.sub(r'https?://scp-wiki-de\.wikidot\.com\S*', '', desc, flags=re.IGNORECASE)
-
-    # Autor & Übersetzer extrahieren
-    author = None
-    m_auth = re.search(r'Autor:\s*([^/|\n\r]+)', desc, flags=re.IGNORECASE)
-    if m_auth:
-        author = m_auth.group(1).strip()
-
-    translator = None
-    m_trans = re.search(r'Übersetz(?:ung|er):\s*([^/|\n\r]+)', desc, flags=re.IGNORECASE)
-    if m_trans:
-        translator = m_trans.group(1).strip()
-
-    # Autor/Übersetzer aus der Beschreibung entfernen
-    desc = re.sub(r'Autor:\s*[^/|\n\r]+', '', desc, flags=re.IGNORECASE)
-    desc = re.sub(r'Übersetz(?:ung|er):\s*[^/|\n\r]+', '', desc, flags=re.IGNORECASE)
-
-    # Beschreibungstext wählen (erstes sinnvolles Fragment ohne Titel-/Meta-Geraffel)
-    parts = re.split(r'[\/\n\r]+', desc)
-    text_desc = ''
-    for part in parts:
-        p = part.strip()
-        if not p:
-            continue
-        # Zeilen wie 'SCP-XXXX: "Titel"' überspringen
-        if re.match(r'^\s*SCP-\w+:\s*["“].+["”]\s*$', p):
-            continue
-        text_desc = p
-        break
-    if not text_desc:
-        text_desc = " ".join(desc.split()).strip()
-
-    # Nachricht bauen
-    msg = f":newspaper2: :speaker: **Neue Vertonung von Pesti | {title}**\n"
-    if text_desc:
-        msg += f"> {text_desc}\n"
-    if author:
-        msg += f"> Autor: {author}\n"
+    # Formatierten Message-String bauen
+    msg = (
+        f":newspaper2: :speaker: **Neue Vertonung von Pesti | {title}**\n"
+        f"> {text_desc}\n"
+    )
+    msg += f"> Autor: {author}\n"
     if translator:
         msg += f"> Übersetzer: {translator}\n"
-    msg += entry.get("link", "").strip()
+
+    msg += entry.get("link", "")  # Direktlink
 
     return msg
 
+
+def format_alt_message(entry):
+    description = html.unescape(entry.get("description", ""))
+    description = re.sub(r"http[s]?://discord\.gg/[^\s]+", "", description, flags=re.IGNORECASE)
+
+    # Aufteilen in Teile: Beschreibung / Autor / Übersetzer
+    lines = description.split("/")
+    text_desc = lines[0].strip() if len(lines) > 0 else ""
+
+    # Autor und Übersetzer
+    author = ""
+    if "Autor:" in description:
+        author_match = re.search(r'Autor:\s*([^/]+)', description)
+        if author_match:
+            author = author_match.group(1).strip()
+
+    # Titel direkt aus dem Feed
+    title = entry.get("title", "Unbekannt")
+
+    # Prüfen, ob Titel mit "SCP-" beginnt
+    if title.startswith("SCP-"):
+        # SCP-Nummer extrahieren
+        scp_match = re.match(r'(SCP-\d+):?\s*"?([^"]+)"?', title)
+        if scp_match:
+            scp_code = scp_match.group(1)
+            scp_title = scp_match.group(2).strip()
+            title_line = f"> +++ [{entry.link} {scp_code}]: {scp_title}"
+        else:
+            title_line = f"> +++ [{entry.link} {title}]"
+    else:
+        # kein SCP-Code → kompletter Titel in eckige Klammer, ohne Doppelpunkt danach
+        title_line = f"> +++ [{entry.link} {title}]"
+
+    # Nachricht zusammensetzen
+    msg = (
+        f"{title_line}\n"
+        f"> {text_desc}\n"
+        f"> ++++* vertont von [[*User Pesti]]"
+    )
+    return msg
+
+
 async def check_rss_feed_loop():
-    global initial_run
     await client.wait_until_ready()
+    initial_run = True  # verhindert Spam beim ersten Start
+
     while not client.is_closed():
         feed = feedparser.parse(FEED_URL)
         for entry in feed.entries:
             if entry.link not in posted_episodes:
-                # Nur posten, wenn nicht der erste Run
-                if not initial_run:
-                    msg = format_episode_message(entry)
-                    channel = client.get_channel(1230551357635825787)  # ID Kanal test: 1238108459543822337 / ID Kanal news: 1230551357635825787
-                    if channel:
-                        await channel.send(msg)
                 posted_episodes.add(entry.link)
-        # Nach der ersten Runde ist der Initial-Run vorbei
-        if initial_run:
-            initial_run = False
-        await asyncio.sleep(600)
+
+                # nur neue Episoden posten, nicht beim allerersten Start
+                if not initial_run:
+                    channel1 = client.get_channel(1238108459543822337)  # Erster Channel (Discord-Format) ID Kanal test: 1238108459543822337 / ID Kanal news: 1230551357635825787
+                    channel2 = client.get_channel(1238108459543822337)  # Zweiter Channel (Wiki-Format)
+
+                    if channel1:
+                        await channel1.send(format_episode_message(entry))
+                    if channel2:
+                        await channel2.send(format_alt_message(entry))
+
+        initial_run = False  # nach dem ersten Durchlauf deaktivieren
+        await asyncio.sleep(600)  # 10 Minuten warten
 
 def parse_scp_code(title):
     if not (title.startswith("SCP-") or title.startswith("SKP-")):
