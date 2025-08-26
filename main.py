@@ -69,31 +69,35 @@ all_episodes = []
 schedule = {}
 posted_episodes = set()  # Damit keine Episode doppelt gepostet wird
 
+def clean_title(raw_title: str) -> str:
+    """Titel aus dem Feed bereinigen und saubere Quotes erzwingen."""
+    title = html.unescape(raw_title or "Unbekannt")
+    # Typografische Quotes vereinheitlichen
+    title = title.replace("„", "\"").replace("“", "\"").replace("‚", "'").replace("’", "'")
+    return title.strip()
+
+
 def format_episode_message(entry):
     description = html.unescape(entry.get("description", ""))
 
     # Discord-Link entfernen
     description = re.sub(r"http[s]?://discord\.gg/[^\s]+", "", description, flags=re.IGNORECASE)
 
-    # Aufteilen in Teile: Beschreibung / Autor / Übersetzer
-    lines = description.split("/")
-
-    # Beschreibungstext
-    text_desc = lines[0].strip() if len(lines) > 0 else ""
-
-    # Autor und Übersetzer
+    # Autor und Übersetzer extrahieren
     author = ""
     translator = ""
-    if len(lines) > 1:
-        author_match = re.search(r'Autor:\s*([^/]+)', description)
-        translator_match = re.search(r'Übersetzung:\s*([^/]+)', description)
-        if author_match:
-            author = author_match.group(1).strip()
-        if translator_match:
-            translator = translator_match.group(1).strip()
+    author_match = re.search(r'Autor:\s*([^/]+)', description)
+    translator_match = re.search(r'Übersetzung:\s*([^/]+)', description)
+    if author_match:
+        author = author_match.group(1).strip()
+    if translator_match:
+        translator = translator_match.group(1).strip()
 
-    # Titel direkt aus dem Feed
-    title = entry.get("title", "Unbekannt")
+    # Ganze Beschreibung ohne Autor-/Übersetzer-Zeilen verwenden
+    text_desc = re.sub(r'Autor:.*|Übersetzung:.*', "", description).strip()
+
+    # Titel bereinigt
+    title = clean_title(entry.get("title", "Unbekannt"))
 
     # Formatierten Message-String bauen
     msg = (
@@ -105,49 +109,46 @@ def format_episode_message(entry):
         msg += f"> Übersetzer: {translator}\n"
 
     msg += entry.get("link", "")  # Direktlink
-
     return msg
 
 
 def format_alt_message(entry):
     description = html.unescape(entry.get("description", ""))
+
+    # Discord-Link entfernen
     description = re.sub(r"http[s]?://discord\.gg/[^\s]+", "", description, flags=re.IGNORECASE)
 
-    # Aufteilen in Teile: Beschreibung / Autor / Übersetzer
-    lines = description.split("/")
-    text_desc = lines[0].strip() if len(lines) > 0 else ""
-
-    # Autor und Übersetzer
+    # Autor extrahieren
     author = ""
-    if "Autor:" in description:
-        author_match = re.search(r'Autor:\s*([^/]+)', description)
-        if author_match:
-            author = author_match.group(1).strip()
+    author_match = re.search(r'Autor:\s*([^/]+)', description)
+    if author_match:
+        author = author_match.group(1).strip()
 
-    # Titel direkt aus dem Feed
-    title = entry.get("title", "Unbekannt")
+    # Ganze Beschreibung ohne Autor-/Übersetzer-Zeilen verwenden
+    text_desc = re.sub(r'Autor:.*|Übersetzung:.*', "", description).strip()
 
-    # Prüfen, ob Titel mit "SCP-" beginnt
+    # Titel bereinigt
+    title = clean_title(entry.get("title", "Unbekannt"))
+
+    # Prüfen ob Titel mit "SCP-" beginnt
     if title.startswith("SCP-"):
-        # SCP-Nummer extrahieren
-        scp_match = re.match(r'(SCP-\d+):?\s*"?([^"]+)"?', title)
-        if scp_match:
-            scp_code = scp_match.group(1)
-            scp_title = scp_match.group(2).strip()
-            title_line = f"> +++ [{entry.link} {scp_code}]: {scp_title}"
-        else:
-            title_line = f"> +++ [{entry.link} {title}]"
+        parts = title.split(":", 1)
+        scp_code = parts[0]
+        scp_title = parts[1].strip() if len(parts) > 1 else ""
+        msg = (
+            f"```> +++ [{entry.get('link','')} {scp_code}]: {scp_title}\n"
+            f"> {text_desc}\n"
+            f"> ++++* vertont von [[*User Pesti]]```"
+        )
     else:
-        # kein SCP-Code → kompletter Titel in eckige Klammer, ohne Doppelpunkt danach
-        title_line = f"> +++ [{entry.link} {title}]"
+        msg = (
+            f"```> +++ [{entry.get('link','')} {title}]\n"
+            f"> {text_desc}\n"
+            f"> ++++* vertont von [[*User Pesti]]```"
+        )
 
-    # Nachricht zusammensetzen
-    msg = (
-        f"{title_line}\n"
-        f"> {text_desc}\n"
-        f"> ++++* vertont von [[*User Pesti]]"
-    )
     return msg
+
 
 
 async def check_rss_feed_loop():
