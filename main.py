@@ -80,8 +80,13 @@ def clean_title(raw_title: str) -> str:
 def format_episode_message(entry):
     description = html.unescape(entry.get("description", ""))
 
-    # Discord-Link entfernen
-    description = re.sub(r"http[s]?://discord\.gg/[^\s]+", "", description, flags=re.IGNORECASE)
+    # "Discord Server: <link>" komplett entfernen
+    description = re.sub(
+        r"Discord\s*Server:\s*http[s]?://discord\.gg/[^\s]+",
+        "",
+        description,
+        flags=re.IGNORECASE
+    )
 
     # Autor und Übersetzer extrahieren
     author = ""
@@ -115,8 +120,13 @@ def format_episode_message(entry):
 def format_alt_message(entry):
     description = html.unescape(entry.get("description", ""))
 
-    # Discord-Link entfernen
-    description = re.sub(r"http[s]?://discord\.gg/[^\s]+", "", description, flags=re.IGNORECASE)
+    # "Discord Server: <link>" komplett entfernen
+    description = re.sub(
+        r"Discord\s*Server:\s*http[s]?://discord\.gg/[^\s]+",
+        "",
+        description,
+        flags=re.IGNORECASE
+    )
 
     # Autor extrahieren
     author = ""
