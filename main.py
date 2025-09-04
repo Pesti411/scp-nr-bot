@@ -173,7 +173,7 @@ async def check_rss_feed_loop():
 
                 # nur neue Episoden posten, nicht beim allerersten Start
                 if not initial_run:
-                    channel1 = client.get_channel(1238108459543822337)  # Erster Channel (Discord-Format) ID Kanal test: 1238108459543822337 / ID Kanal news: 1230551357635825787
+                    channel1 = client.get_channel(1230551357635825787)  # Erster Channel (Discord-Format) ID Kanal test: 1238108459543822337 / ID Kanal news: 1230551357635825787
                     channel2 = client.get_channel(1238108459543822337)  # Zweiter Channel (Wiki-Format)
 
                     if channel1:
