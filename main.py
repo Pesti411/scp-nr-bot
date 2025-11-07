@@ -194,10 +194,11 @@ def parse_scp_code(title):
     return match.group(1) if match else None
 
 def update_feed():
-    global scp_links, all_episodes
+    global scp_links, all_episodes, title_lookup
     scp_links.clear()
     all_episodes.clear()
-
+    title_lookup.clear()  # reset
+    
     feed = feedparser.parse(FEED_URL)
     for entry in feed.entries:
         title = html.unescape(entry.title.strip())
@@ -208,6 +209,13 @@ def update_feed():
             "link": link
         })
 
+        # Titel auch ohne SCP-Code speichern
+        title_lookup[title.lower()] = {
+            "title": title,
+            "link": link
+        }
+
+        # Nur wenn SCP-Code vorhanden, extra merken
         code = parse_scp_code(title)
         if code:
             scp_links[code.lower()] = {
@@ -319,6 +327,15 @@ async def on_message(message):
                     f"📅 **{code.upper()}** ist laut Plan für {schedule[code]} vorgesehen."
                 )
                 return
+
+    # 3. Titel-Erkennung für Nicht-SCP-Episoden
+    for title_lower, data in title_lookup.items():
+        # Wenn der Episodentitel im Nachrichtentext vorkommt (Groß-/Kleinschreibung egal)
+        if title_lower in content_lower:
+            print(f"[DEBUG] Episodentitel '{data['title']}' erkannt")
+            response = f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
+            await message.channel.send(response)
+            return
 
     # SCP-Code Erkennung & Reaktion (zusätzliche Prüfung)
     found_code = None
