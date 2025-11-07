@@ -69,6 +69,7 @@ scp_links = {}
 all_episodes = []
 schedule = {}
 posted_episodes = set()  # Damit keine Episode doppelt gepostet wird
+title_lookup = {}
 
 def clean_title(raw_title: str) -> str:
     """Titel aus dem Feed bereinigen und saubere Quotes erzwingen."""
