@@ -59,12 +59,11 @@ CUSTOM_TRIGGERS = {
     "peanut": f"🔎 Gefunden: **SCP-173: „Die Statue“**\n🎧 **[Hier anhören](https://nurkram.de/scp-173)**",
     "abyssus": f"🔎 Gefunden: **SCP-001-DE: CODE NAME: „Abyssus - Abgrund der Realität“**\n🎧 **[Hier anhören](https://nurkram.de/scp-001-de-abyssus)**",
     "rbf": (
-    "🔎 Gefunden: **Reißend, Beißend, Flehend**\n"
-    "🎧 **[Hier anhören](https://nurkram.de/rei%C3%9Fend-bei%C3%9Fend-flehend)**\n\n"
-    "🔎 Teil 2: **Reißend, Beißend, Flehend II**\n"
-    "🎧 **[Hier anhören](https://nurkram.de/rei%C3%9Fend-bei%C3%9Fend-flehend-ii)**"
-)
-
+        "🔎 Gefunden: **Reißend, Beißend, Flehend**\n"
+        "🎧 **[Hier anhören](https://nurkram.de/rei%C3%9Fend-bei%C3%9Fend-flehend)**\n\n"
+        "🔎 Teil 2: **Reißend, Beißend, Flehend II**\n"
+        "🎧 **[Hier anhören](https://nurkram.de/rei%C3%9Fend-bei%C3%9Fend-flehend-ii)**"
+    )
 }
 
 intents = discord.Intents.default()
