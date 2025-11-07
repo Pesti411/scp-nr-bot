@@ -212,10 +212,10 @@ def update_feed():
         title = html.unescape(entry.title.strip())
         link = entry.link.strip()
         
-    # Titel-Blacklist prüfen
-    if title.lower() in TITLE_BLACKLIST:
-        print(f"[INFO] Titel '{title}' übersprungen (Blacklist).")
-        continue
+        # Titel-Blacklist prüfen
+        if title.lower() in TITLE_BLACKLIST:
+            print(f"[INFO] Titel '{title}' übersprungen (Blacklist).")
+            continue
         
         all_episodes.append({
             "title": title,
