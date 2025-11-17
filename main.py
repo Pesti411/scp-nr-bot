@@ -63,7 +63,8 @@ CUSTOM_TRIGGERS = {
         "🔎 Gefunden: **Reißend, Beißend, Flehend**\n"
         "🎧 **[Hier anhören](https://nurkram.de/rei%C3%9Fend-bei%C3%9Fend-flehend)**\n\n"
         "🔎 Teil 2: **Reißend, Beißend, Flehend II**\n"
-        "🎧 **[Hier anhören](https://nurkram.de/rei%C3%9Fend-bei%C3%9Fend-flehend-ii)**"
+        "🎧 **[Hier anhören](https://nurkram.de/rei%C3%9Fend-bei%C3%9Fend-flehend-ii)**",
+    "lombardi": f"🔎 Gefunden: **Die Lombardi Geschichten**\n🎧 **[Hier anhören](https://nurkram.de/lombardi)**"
     )
 }
 
