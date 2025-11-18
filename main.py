@@ -64,8 +64,9 @@ CUSTOM_TRIGGERS = {
         "🎧 **[Hier anhören](https://nurkram.de/rei%C3%9Fend-bei%C3%9Fend-flehend)**\n\n"
         "🔎 Teil 2: **Reißend, Beißend, Flehend II**\n"
         "🎧 **[Hier anhören](https://nurkram.de/rei%C3%9Fend-bei%C3%9Fend-flehend-ii)**",
-    "lombardi": f"🔎 Gefunden: **Die Lombardi Geschichten**\n🎧 **[Hier anhören](https://nurkram.de/lombardi)**"
     )
+    "lombardi": f"🔎 Gefunden: **Die Lombardi Geschichten**\n🎧 **[Hier anhören](https://nurkram.de/lombardi)**"
+    
 }
 
 intents = discord.Intents.default()
