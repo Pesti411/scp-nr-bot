@@ -305,6 +305,20 @@ async def on_message(message):
 
     print(f"[DEBUG] Neue Nachricht: {content_raw}")
 
+    # --- Blacklist-Bypass: !<titel> ---
+    if content_lower.startswith("!"):
+        cmd = content_lower[1:].strip()
+
+        if cmd in TITLE_BLACKLIST:
+            data = title_lookup.get(cmd)
+            if data:
+                await message.channel.send(
+                    f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
+                )
+            else:
+                await message.channel.send("⚠️ Dieser Titel ist bekannt, aber aktuell nicht im Feed.")
+            return
+
     # Eigene Trigger
     for trigger, response in CUSTOM_TRIGGERS.items():
         if trigger in content_lower:
@@ -345,7 +359,9 @@ async def on_message(message):
 
     # 3. Titel-Erkennung für Nicht-SCP-Episoden
     for title_lower, data in title_lookup.items():
-        # Wenn der Episodentitel im Nachrichtentext vorkommt (Groß-/Kleinschreibung egal)
+        if title_lower in TITLE_BLACKLIST:
+            continue  # ❗ bewusst ignorieren
+
         if title_lower in content_lower:
             print(f"[DEBUG] Episodentitel '{data['title']}' erkannt")
             response = f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
@@ -394,16 +410,7 @@ async def on_message(message):
 
 async def post_latest_wordpress_post_once():
     print("[INFO] Starte einmaliges Posten des neuesten Wordpress-Beitrags ...")
-
-    # Blacklist-Eintrag finden / anzeigen
-    if content_lower.startswith("!") and content_lower[1:] in TITLE_BLACKLIST:
-        title = content_lower[1:]
-        data = title_lookup.get(title)
-        if data:
-            await message.channel.send(
-                f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
-            )
-        return
+    
 
 @client.event
 async def on_ready():
