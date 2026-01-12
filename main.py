@@ -19,7 +19,7 @@ FEED_URL = "https://q8reci.podcaster.de/scp-deutsch.rss"
 SCHEDULE_CSV_URL = "https://docs.google.com/spreadsheets/d/125iGFTWMVKImY_abjac1Lfal78o-dFzQalq6rT_YDxM/export?format=csv"
 WORDPRESS_FEED_URL = "https://nurkram.de/wp-json/wp/v2/posts?categories=703&per_page=5"
 BLACKLIST_CHANNELS = ["discord-vorschläge", "umfragen", "roleplay", "vertonungsplan", "news"]
-TITLE_BLACKLIST = {"nichts"}
+TITLE_BLACKLIST = {"nichts", "frei"}
 
 SPECIAL_CODES = {
     "SCP-001": {
@@ -394,7 +394,17 @@ async def on_message(message):
 
 async def post_latest_wordpress_post_once():
     print("[INFO] Starte einmaliges Posten des neuesten Wordpress-Beitrags ...")
-    
+
+    # Blacklist-Eintrag finden / anzeigen
+    if content_lower.startswith("!") and content_lower[1:] in TITLE_BLACKLIST:
+        title = content_lower[1:]
+        data = title_lookup.get(title)
+        if data:
+            await message.channel.send(
+                f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
+            )
+        return
+
 @client.event
 async def on_ready():
     global tasks_started
