@@ -328,7 +328,7 @@ async def on_message(message):
         cmd = content_lower[1:].strip()
 
         if cmd in TITLE_BLACKLIST:
-            data = title_lookup.get(cmd)
+            data = all_title_lookup.get(cmd)
             if data:
                 await message.channel.send(
                     f"🔎 Gefunden: **{data['title']}**\n🎧 **[Hier anhören]({data['link']})**"
