@@ -12,6 +12,7 @@ import requests
 
 tasks_started = False
 initial_run = True
+all_title_lookup = {}
 
 # Konfiguration
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -204,33 +205,42 @@ def parse_scp_code(title):
     return match.group(1) if match else None
 
 def update_feed():
-    global scp_links, all_episodes, title_lookup
+    global scp_links, all_episodes, title_lookup, all_title_lookup
+
     scp_links.clear()
     all_episodes.clear()
-    title_lookup.clear()  # reset
-    
+    title_lookup.clear()
+    all_title_lookup.clear()
+
     feed = feedparser.parse(FEED_URL)
     for entry in feed.entries:
         title = html.unescape(entry.title.strip())
         link = entry.link.strip()
-        
-        # Titel-Blacklist prüfen
-        if title.lower() in TITLE_BLACKLIST:
-            print(f"[INFO] Titel '{title}' übersprungen (Blacklist).")
-            continue
-        
+        title_lower = title.lower()
+
+        # 🔹 1. IMMER speichern (für Commands)
+        all_title_lookup[title_lower] = {
+            "title": title,
+            "link": link
+        }
+
         all_episodes.append({
             "title": title,
             "link": link
         })
 
-        # Titel auch ohne SCP-Code speichern
-        title_lookup[title.lower()] = {
+        # 🔹 2. Blacklist → nicht automatisch reagieren
+        if title_lower in TITLE_BLACKLIST:
+            print(f"[INFO] Titel '{title}' nur manuell verfügbar (Blacklist).")
+            continue
+
+        # 🔹 3. Automatische Titel-Erkennung
+        title_lookup[title_lower] = {
             "title": title,
             "link": link
         }
 
-        # Nur wenn SCP-Code vorhanden, extra merken
+        # 🔹 4. SCP-Codes separat
         code = parse_scp_code(title)
         if code:
             scp_links[code.lower()] = {
@@ -304,6 +314,14 @@ async def on_message(message):
     content_upper = content_raw.upper()
 
     print(f"[DEBUG] Neue Nachricht: {content_raw}")
+
+    if content_lower == "!blacklist":
+        titles = "\n".join(f"- {t}" for t in TITLE_BLACKLIST)
+        await message.channel.send(
+            f"🚫 **Diese Titel sind absichtlich nicht automatisch erkannt:**\n{titles}\n\n"
+            "👉 Mit `!titel` kannst du sie trotzdem abrufen."
+        )
+        return
 
     # --- Blacklist-Bypass: !<titel> ---
     if content_lower.startswith("!"):
