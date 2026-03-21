@@ -20,7 +20,7 @@ FEED_URL = "https://q8reci.podcaster.de/scp-deutsch.rss"
 SCHEDULE_CSV_URL = "https://docs.google.com/spreadsheets/d/125iGFTWMVKImY_abjac1Lfal78o-dFzQalq6rT_YDxM/export?format=csv"
 WORDPRESS_FEED_URL = "https://nurkram.de/wp-json/wp/v2/posts?categories=703&per_page=5"
 BLACKLIST_CHANNELS = ["discord-vorschläge", "umfragen", "roleplay", "vertonungsplan", "news"]
-TITLE_BLACKLIST = {"nichts", "frei"}
+TITLE_BLACKLIST = {"nichts", "frei", "titel"}
 
 SPECIAL_CODES = {
     "SCP-001": {
