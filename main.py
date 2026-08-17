@@ -21,6 +21,7 @@ SCHEDULE_CSV_URL = "https://docs.google.com/spreadsheets/d/125iGFTWMVKImY_abjac1
 WORDPRESS_FEED_URL = "https://nurkram.de/wp-json/wp/v2/posts?categories=703&per_page=5"
 BLACKLIST_CHANNELS = ["discord-vorschläge", "umfragen", "roleplay", "vertonungsplan", "news"]
 TITLE_BLACKLIST = {"nichts", "frei", "titel"}
+AUTO_ROLE_NAME = "nobody"
 
 SPECIAL_CODES = {
     "SCP-001": {
@@ -72,6 +73,7 @@ CUSTOM_TRIGGERS = {
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
 
 client = discord.Client(intents=intents)
 
@@ -429,6 +431,29 @@ async def on_message(message):
 async def post_latest_wordpress_post_once():
     print("[INFO] Starte einmaliges Posten des neuesten Wordpress-Beitrags ...")
     
+@client.event
+async def on_member_join(member):
+    # @everyone zählt nicht als normale Rolle
+    if len(member.roles) > 1:
+        print(f"[INFO] {member} hat bereits eine Rolle – keine automatische Zuweisung.")
+        return
+
+    role = discord.utils.get(member.guild.roles, name=AUTO_ROLE_NAME)
+
+    if role is None:
+        print(f"[WARNUNG] Rolle '{AUTO_ROLE_NAME}' wurde nicht gefunden.")
+        return
+
+    try:
+        await member.add_roles(role)
+        print(f"[INFO] Neue Rolle '{role.name}' an {member} vergeben.")
+    except discord.Forbidden:
+        print(
+            f"[FEHLER] Keine Berechtigung, '{role.name}' an {member} zu vergeben. "
+            f"Die Bot-Rolle muss über '{role.name}' stehen."
+        )
+    except discord.HTTPException as e:
+        print(f"[FEHLER] Rolle konnte {member} nicht zugewiesen werden: {e}")
 
 @client.event
 async def on_ready():
