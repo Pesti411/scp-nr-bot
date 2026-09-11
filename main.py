@@ -67,7 +67,36 @@ CUSTOM_TRIGGERS = {
         "🔎 Teil 2: **Reißend, Beißend, Flehend II**\n"
         "🎧 **[Hier anhören](https://nurkram.de/rei%C3%9Fend-bei%C3%9Fend-flehend-ii)**"
     ),
-    "lombardi": f"🔎 Gefunden: **Die Lombardi Geschichten**\n🎧 **[Hier anhören](https://nurkram.de/lombardi)**"
+    "lombardi": f"🔎 Gefunden: **Die Lombardi Geschichten**\n🎧 **[Hier anhören](https://nurkram.de/lombardi)**",
+    "!tanija": (
+        Hier eine Liste aller Artikel der Autorin Tanija, die bereits vertont wurden:
+	    "🔸 **[SCP-070-IT: „Vergessene Abgründe](https://nurkram.de/scp-070-it)**\n"
+		"🔸 **[Ein Geschenk für eine Löwin](https://nurkram.de/ein-geschenk-f%C3%BCr-eine-l%C3%B6win)**\n"
+		"🔸 **[SCP-277-DE: „Dratsie-Königin“](https://nurkram.de/scp-277-de)**\n"
+		"🔸 **[Der Anfang vom Ende](https://nurkram.de/der-anfang-vom-ende)**\n"
+		"🔸 **[Reißend, Beißend, Flehend](https://nurkram.de/rei%C3%9Fend-bei%C3%9Fend-flehend)**\n"
+		"🔸 **[SCP-272-DE: „Megalodon“](https://nurkram.de/scp-272-de)**\n"
+		"🔸 **[Forschergeist](https://nurkram.de/forschergeist)**\n"
+		"🔸 **[SCP-177-DE: „Die Rungholt-Scherbe“](https://nurkram.de/scp-177-de)**\n"
+		"🔸 **[Personaldatenblatt: Johan Frey](https://nurkram.de/personaldatenblatt-johan-frey)**\n"
+		"🔸 **[Historisches Dokument H77451-CH-04](https://nurkram.de/historisches-dokument-h77451-ch-04)**\n"
+		"🔸 **[Narben](https://nurkram.de/narben)**\n"
+		"🔸 **[Unsere neuen Brüder](https://nurkram.de/unsere-neuen-br%C3%BCder)**\n"
+		"🔸 **[Ritterlichkeit](https://nurkram.de/ritterlichkeit)**\n"
+		"🔸 **[Reißend, Beißend, Flehend II](https://nurkram.de/rei%C3%9Fend-bei%C3%9Fend-flehend-ii)**\n"
+		"🔸 **[SCP-233-DE: „Hakemann“](https://nurkram.de/scp-233-de)**\n"
+		"🔸 **[Untitled Alien Story No. 7](https://nurkram.de/untitled-alien-story-no-7)**\n"
+		"🔸 **[Personaldatenblatt: Wolfgang Matussek](https://nurkram.de/personaldatenblatt-wolfgang-matussek)**\n"
+		"🔸 **[Frivole Fangirls](https://nurkram.de/frivole-fangirls)**\n"
+		"🔸 **[Eine ganz kurze Geschichte mit Wumms](https://nurkram.de/eine-ganz-kurze-geschichte-mit-wumms)**\n"
+		"🔸 **[Der Restaurator und die Söldnerin](https://nurkram.de/der-restaurator-und-die-soeldnerin)**\n"
+		"🔸 **[Befehlslast](https://nurkram.de/befehlslast)**\n"
+		"🔸 **[Personaldatenblatt: Falco Wagner](https://nurkram.de/personaldatenblatt-falco-wagner)**\n"
+		"🔸 **[Warmweiß](https://nurkram.de/warmweiss)**\n"
+		"🔸 **[Du bist mein](https://nurkram.de/du-bist-mein)**\n"
+		"🔸 **[Aceton](https://nurkram.de/aceton)**\n"
+		"🔸 **[Mandalorianer](https://nurkram.de/mandalorianer)**"
+    )
     
 }
 
