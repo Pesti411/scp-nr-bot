@@ -69,7 +69,7 @@ CUSTOM_TRIGGERS = {
     ),
     "lombardi": f"🔎 Gefunden: **Die Lombardi Geschichten**\n🎧 **[Hier anhören](https://nurkram.de/lombardi)**",
     "!tanija": (
-        Hier eine Liste aller vertonten Artikel der Autorin Tanija:
+        "Hier eine Liste aller vertonten Artikel der Autorin Tanija:"
 	    "🔸 **[SCP-070-IT: „Vergessene Abgründe](https://nurkram.de/scp-070-it)**\n"
 		"🔸 **[Ein Geschenk für eine Löwin](https://nurkram.de/ein-geschenk-f%C3%BCr-eine-l%C3%B6win)**\n"
 		"🔸 **[SCP-277-DE: „Dratsie-Königin“](https://nurkram.de/scp-277-de)**\n"
