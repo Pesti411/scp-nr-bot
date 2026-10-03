@@ -55,7 +55,7 @@ SPECIAL_CODES = {
 	"SCP-9630": {
         "response": f"🔎 Gefunden: **SCP-9926: „l'Ortolan“ (ehemals SCP-9630-T)**\n🎧 **[Hier anhören](https://nurkram.de/scp-9630-t)**"
     },
-	"SCP-9962": {
+	"SCP-9926": {
         "response": f"🔎 Gefunden: **SCP-9926: „l'Ortolan“ (ehemals SCP-9630-T)**\n🎧 **[Hier anhören](https://nurkram.de/scp-9630-t)**"
     }
 }
