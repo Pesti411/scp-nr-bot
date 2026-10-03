@@ -51,6 +51,12 @@ SPECIAL_CODES = {
     },
     "SCP-1730": {
         "response": f"🔎 Gefunden: **SCP-1730: „Was ist mit Standort-13 passiert?“**\n🎧 **[Hier anhören](https://nurkram.de/scp-1730)**"
+    },
+	"SCP-9630": {
+        "response": f"🔎 Gefunden: **SCP-9926: „l'Ortolan“ (ehemals SCP-9630-T)**\n🎧 **[Hier anhören](https://nurkram.de/scp-9630-t)**"
+    },
+	"SCP-9962": {
+        "response": f"🔎 Gefunden: **SCP-9926: „l'Ortolan“ (ehemals SCP-9630-T)**\n🎧 **[Hier anhören](https://nurkram.de/scp-9630-t)**"
     }
 }
 
