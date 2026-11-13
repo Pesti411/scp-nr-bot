@@ -41,6 +41,7 @@ SPECIAL_CODES = {
             "- [SCP-001-DE: CODE NAME: „Dr Leo – Trabant / Ende einer Ära“](https://nurkram.de/scp-001-de-dr-leo)\n"
             "- [SCP-001-DE: CODE NAME: „Thielemann – Wir stehen über Justitia“](https://nurkram.de/scp-001-de-thielemann)\n"
             "- [SCP-001-DE: CODE NAME: „Abyssus - Abgrund der Realität“](https://nurkram.de/scp-001-de-abyssus)\n"
+			"- [SCP-001-DE: CODE NAME: "Dr Nieliux - Memoria auf 0"](https://nurkram.de/scp-001-de-dr-nieliux)\n"
             "- [SCP-001-KO: CODE NAME: „L.H. Sein – Durch Menschen“](https://nurkram.de/scp-001-ko-lh-sein)\n"
             "- [SCP-LA-001: CODE NAME: „Fulmen – Die Sense“](https://nurkram.de/scp-la-001-sense)\n"
             "- [SCP-LA-001: CODE NAME: „Praetor Bold – Sprache“](https://nurkram.de/scp-la-001-sprache)\n"
